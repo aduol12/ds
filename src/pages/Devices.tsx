@@ -24,6 +24,7 @@ function Devices() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    console.log(`Input changed: ${name} = ${value}`);
     const numericFields = ['latitude', 'longitude', 'reading_interval_active_min', 'reading_interval_idle_min'];
     if (numericFields.includes(name)) {
       setNewDevice((prev) => ({ ...prev, [name]: parseFloat(value) }));
@@ -34,6 +35,7 @@ function Devices() {
 
   const handleAddDevice = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Submitting form with data:', newDevice);
     console.log('Attempting to add device with data:', newDevice);
     try {
       const createdKit = await createKit(newDevice);
@@ -49,10 +51,13 @@ function Devices() {
 
   useEffect(() => {
     const fetchDevices = async () => {
+      console.log('Fetching devices...');
       try {
         const data = await getDevicesSummary();
+        console.log('Devices data fetched:', data);
         setDevices(data);
       } catch (err) {
+        console.error('Failed to fetch devices:', err);
         setError('Failed to fetch devices');
       } finally {
         setLoading(false);
@@ -61,15 +66,15 @@ function Devices() {
 
     fetchDevices();
   }, []);
-  const activeDevices = devices.filter((device) => device.is_active).length;
-  const offlineDevices = devices.filter((device) => !device.is_active).length;
+  const activeDevices = devices.filter((device) => device.kit_is_active).length;
+  const offlineDevices = devices.filter((device) => !device.kit_is_active).length;
   // TODO: Add maintenance status
-  const maintenanceDevices = devices.filter((device) => device.maintenance).length;
+  const maintenanceDevices = 0;
   const avgBattery =
     devices.length > 0
       ? Math.round(
           devices.reduce((acc, device) => {
-            return acc + (device.latest_sensor_data?.battery ?? 0);
+            return acc + (device.battery ?? 0);
           }, 0) / devices.length
         )
       : 0;
@@ -85,7 +90,10 @@ function Devices() {
             <p className="text-gray-600">Monitor and manage your IoT sensor devices</p>
           </div>
           <button
-            onClick={() => setShowAddDevice(true)}
+            onClick={() => {
+              console.log('Add Device button clicked');
+              setShowAddDevice(true);
+            }}
             className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 whitespace-nowrap"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

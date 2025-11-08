@@ -1,62 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
-
-// Mock device data - in real app this would come from API
-const mockDevice = {
-  id: 1,
-  name: 'Field Sensor Alpha',
-  location: 'North Field - Zone A',
-  status: 'active' as const,
-  batteryLevel: 85,
-  signalStrength: 4,
-  lastSeen: '2 minutes ago',
-  cropType: 'Corn',
-  installDate: '2024-01-15',
-  firmwareVersion: 'v2.1.3',
-  latitude: 40.7128,
-  longitude: -74.0060,
-  irrigationActive: false
-};
-
-// Mock current sensor readings
-const mockCurrentReadings = {
-  moisture: 45,
-  temperature: 22,
-  ph: 6.8,
-  ec: 1.2,
-  nitrogen: 120,
-  phosphorus: 80,
-  potassium: 150,
-  lastUpdate: '2 minutes ago'
-};
-
-// Mock historical data
-const mockHistoricalData = [
-  { id: 1, timestamp: '2024-01-20 14:30', moisture: 45, temperature: 22, ph: 6.8, ec: 1.2, nitrogen: 120, phosphorus: 80, potassium: 150, irrigationActive: false },
-  { id: 2, timestamp: '2024-01-20 14:00', moisture: 42, temperature: 23, ph: 6.7, ec: 1.3, nitrogen: 118, phosphorus: 82, potassium: 148, irrigationActive: true },
-  { id: 3, timestamp: '2024-01-20 13:30', moisture: 38, temperature: 24, ph: 6.9, ec: 1.1, nitrogen: 125, phosphorus: 78, potassium: 152, irrigationActive: true },
-  { id: 4, timestamp: '2024-01-20 13:00', moisture: 35, temperature: 25, ph: 7.0, ec: 1.0, nitrogen: 122, phosphorus: 85, potassium: 145, irrigationActive: false },
-  { id: 5, timestamp: '2024-01-20 12:30', moisture: 32, temperature: 26, ph: 6.8, ec: 1.4, nitrogen: 115, phosphorus: 88, potassium: 140, irrigationActive: false },
-];
-
-// Mock reports data
-const mockReports = [
-  { id: 1, title: 'Weekly Irrigation Summary', date: '2024-01-20', type: 'irrigation', status: 'completed' },
-  { id: 2, title: 'Soil Health Analysis', date: '2024-01-19', type: 'soil', status: 'completed' },
-  { id: 3, title: 'Water Usage Efficiency', date: '2024-01-18', type: 'water', status: 'completed' },
-  { id: 4, title: 'NPK Trend Analysis', date: '2024-01-17', type: 'nutrients', status: 'completed' },
-];
+import { getKitById } from '../api/assets';
+import { getLatestSensorData } from '../api/data';
+import { Kit, SensorReading } from '../types/api';
+import Loader from '../components/Loader';
 
 function DeviceDetail() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  const [device, setDevice] = useState<Kit | null>(null);
+  const [sensorData, setSensorData] = useState<SensorReading | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'reports'>('overview');
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportType, setReportType] = useState('');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [irrigationActive, setIrrigationActive] = useState(mockDevice.irrigationActive);
+  const [irrigationActive, setIrrigationActive] = useState(false);
   const [showIrrigationModal, setShowIrrigationModal] = useState(false);
   const [irrigationAction, setIrrigationAction] = useState<'start' | 'stop'>('start');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+      try {
+        setLoading(true);
+        const [kitData, sensorData] = await Promise.all([
+          getKitById(id),
+          getLatestSensorData(id),
+        ]);
+        setDevice(kitData);
+        setSensorData(sensorData);
+        setIrrigationActive(kitData.is_irrigating);
+      } catch (err) {
+        setError('Failed to fetch device details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [id]);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -84,6 +68,30 @@ function DeviceDetail() {
     setShowIrrigationModal(false);
   };
 
+  if (loading) {
+    return (
+      <Layout>
+        <Loader />
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <p className="text-red-500">{error}</p>
+      </Layout>
+    );
+  }
+
+  if (!device) {
+    return (
+      <Layout>
+        <p>Device not found</p>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto space-y-6">
@@ -93,19 +101,19 @@ function DeviceDetail() {
             <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
               <Link to="/live-data" className="hover:text-green-600">Live Data</Link>
               <span>›</span>
-              <span className="text-gray-900">{mockDevice.name}</span>
+              <span className="text-gray-900">{device.location_name}</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">{mockDevice.name}</h1>
-            <p className="text-gray-600">{mockDevice.location}</p>
+            <h1 className="text-2xl font-bold text-gray-900">{device.location_name}</h1>
+            <p className="text-gray-600">{device.crop_type}</p>
           </div>
           
           <div className="flex items-center space-x-3">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-              mockDevice.status === 'active' 
+              device.is_active
                 ? 'bg-green-100 text-green-800 border border-green-200' 
                 : 'bg-red-100 text-red-800 border border-red-200'
             }`}>
-              {mockDevice.status}
+              {device.is_active ? 'Active' : 'Offline'}
             </span>
             
             {irrigationActive && (
@@ -198,118 +206,92 @@ function DeviceDetail() {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <div className="space-y-6">
-            {/* Current Readings */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Current Sensor Readings</h2>
-                <p className="text-sm text-gray-600">Last updated: {mockCurrentReadings.lastUpdate}</p>
-              </div>
-              
-              <div className="p-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">Soil Moisture</p>
-                    <p className="text-3xl font-bold text-blue-600">{mockCurrentReadings.moisture}%</p>
-                    <p className="text-xs text-gray-500">Optimal</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Current Readings */}
+            <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Sensor Readings</h3>
+              {sensorData ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Soil Moisture</p>
+                    <p className="text-2xl font-bold text-blue-600">{sensorData.moisture}%</p>
                   </div>
-                  
-                  <div className="text-center p-4 bg-orange-50 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">Temperature</p>
-                    <p className="text-3xl font-bold text-orange-600">{mockCurrentReadings.temperature}°C</p>
-                    <p className="text-xs text-gray-500">Normal</p>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Temperature</p>
+                    <p className="text-2xl font-bold text-gray-900">{sensorData.temperature}°C</p>
                   </div>
-                  
-                  <div className="text-center p-4 bg-purple-50 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">pH Level</p>
-                    <p className="text-3xl font-bold text-purple-600">{mockCurrentReadings.ph}</p>
-                    <p className="text-xs text-gray-500">Good</p>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">pH Level</p>
+                    <p className="text-2xl font-bold text-gray-900">{sensorData.ph}</p>
                   </div>
-                  
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-1">EC Level</p>
-                    <p className="text-3xl font-bold text-green-600">{mockCurrentReadings.ec}</p>
-                    <p className="text-xs text-gray-500">mS/cm</p>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">EC (mS/cm)</p>
+                    <p className="text-2xl font-bold text-gray-900">{sensorData.ec}</p>
                   </div>
-                </div>
-
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">NPK Levels (ppm)</h3>
-                  <div className="grid grid-cols-3 gap-6">
-                    <div className="text-center p-4 bg-red-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Nitrogen (N)</p>
-                      <p className="text-2xl font-bold text-red-600">{mockCurrentReadings.nitrogen}</p>
-                    </div>
-                    
-                    <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Phosphorus (P)</p>
-                      <p className="text-2xl font-bold text-yellow-600">{mockCurrentReadings.phosphorus}</p>
-                    </div>
-                    
-                    <div className="text-center p-4 bg-indigo-50 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">Potassium (K)</p>
-                      <p className="text-2xl font-bold text-indigo-600">{mockCurrentReadings.potassium}</p>
-                    </div>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Nitrogen</p>
+                    <p className="text-2xl font-bold text-gray-900">{sensorData.nitrogen}</p>
+                  </div>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Phosphorus</p>
+                    <p className="text-2xl font-bold text-gray-900">{sensorData.phosphorus}</p>
+                  </div>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Potassium</p>
+                    <p className="text-2xl font-bold text-gray-900">{sensorData.potassium}</p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="text-center p-8 bg-gray-50 rounded-lg">
+                  <p className="text-lg font-medium text-gray-700">No sensor data available</p>
+                  <p className="text-sm text-gray-500">This device has not reported any data yet.</p>
+                </div>
+              )}
             </div>
 
-            {/* Device Information */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Device Information</h2>
-              </div>
-              
-              <div className="p-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Battery</p>
-                      <p className="font-semibold text-gray-900">{mockDevice.batteryLevel}%</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <svg className="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 007.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Signal</p>
-                      <p className="font-semibold text-gray-900">{mockDevice.signalStrength}/5</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <svg className="h-8 w-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Last Seen</p>
-                      <p className="font-semibold text-gray-900">{mockDevice.lastSeen}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <svg className="h-8 w-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Firmware</p>
-                      <p className="font-semibold text-gray-900">{mockDevice.firmwareVersion}</p>
-                    </div>
-                  </div>
+            {/* Right Column - Device Information */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Device Information</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Kit ID:</span>
+                  <span className="font-medium">{device.kit_id}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Location:</span>
+                  <span className="font-medium">{device.location_name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Crop Type:</span>
+                  <span className="font-medium">{device.crop_type}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Install Date:</span>
+                  <span className="font-medium">{new Date(device.created_at).toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Firmware:</span>
+                  <span className="font-medium">{sensorData?.firmware ?? 'N/A'}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Last Seen:</span>
+                  <span className="font-medium">{sensorData ? new Date(sensorData.timestamp).toLocaleString() : 'N/A'}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Latitude:</span>
+                  <span className="font-medium">{device.latitude}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Longitude:</span>
+                  <span className="font-medium">{device.longitude}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Battery:</span>
+                  <span className="font-medium">{sensorData?.battery ?? 'N/A'}%</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Signal:</span>
+                  <span className="font-medium">{sensorData?.signal ?? 'N/A'}%</span>
                 </div>
               </div>
             </div>

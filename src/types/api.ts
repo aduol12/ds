@@ -97,9 +97,38 @@ export interface SensorReading {
 
 export type LatestSensorData = SensorReading;
 
-export interface DeviceSummary extends Kit {
-  latest_sensor_data: LatestSensorData | null;
-  maintenance: boolean;
+export interface DeviceSummary {
+  battery: number | null;
+  config_active_mode: string;
+  config_id: string;
+  config_kit_id: string;
+  config_low_moisture_threshold_pct: string;
+  config_manual_settings_json: Record<string, unknown>;
+  config_notifications_enabled: Record<string, unknown>;
+  config_reading_interval_active_min: number;
+  config_reading_interval_idle_min: number;
+  config_sensor_settings_json: Record<string, unknown>;
+  config_smart_weather_settings_json: Record<string, unknown>;
+  data_id: string | null;
+  ec: number | null;
+  firmware: number | null;
+  kit_crop_type: string;
+  kit_farmer_id: string;
+  kit_id: string | null;
+  kit_is_active: boolean;
+  kit_is_irrigating: boolean;
+  kit_kit_id: string;
+  kit_latitude: string;
+  kit_location_name: string;
+  kit_longitude: string;
+  moisture: number | null;
+  nitrogen: number | null;
+  ph: number | null;
+  phosphorus: number | null;
+  potassium: number | null;
+  signal: number | null;
+  temperature: number | null;
+  timestamp: string | null;
 }
 
 export interface Alert {
