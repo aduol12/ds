@@ -95,6 +95,13 @@ export interface SensorReading {
   is_irrigating?: boolean;
 }
 
+export type LatestSensorData = SensorReading;
+
+export interface DeviceSummary extends Kit {
+  latest_sensor_data: LatestSensorData | null;
+  maintenance: boolean;
+}
+
 export interface Alert {
   id: string;
   kit_id: string;

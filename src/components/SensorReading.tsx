@@ -1,33 +1,17 @@
 import { Link } from 'react-router-dom';
-
-interface SensorData {
-  id: number;
-  deviceName: string;
-  location: string;
-  moisture: number;
-  temperature: number;
-  ph: number;
-  ec: number;
-  nitrogen: number;
-  phosphorus: number;
-  potassium: number;
-  lastUpdate: string;
-  status: 'optimal' | 'warning' | 'low';
-  irrigationActive: boolean;
-}
+import { DeviceSummary } from '../types/api';
 
 interface SensorReadingProps {
-  sensor: SensorData;
+  device: DeviceSummary;
 }
 
-function SensorReading({ sensor }: SensorReadingProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'optimal': return 'bg-green-100 text-green-800 border-green-200';
-      case 'warning': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+function SensorReading({ device }: SensorReadingProps) {
+  const sensor = device.latest_sensor_data;
+
+  const getStatusColor = (moisture: number) => {
+    if (moisture >= 40) return 'bg-green-100 text-green-800 border-green-200';
+    if (moisture >= 30) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    return 'bg-red-100 text-red-800 border-red-200';
   };
 
   const getMoistureColor = (moisture: number) => {
@@ -36,24 +20,46 @@ function SensorReading({ sensor }: SensorReadingProps) {
     return 'text-red-600';
   };
 
+  if (!sensor) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <Link
+              to={`/device/${device.kit_id}`}
+              className="text-lg font-semibold text-gray-900 hover:text-green-600 transition-colors"
+            >
+              {device.location_name}
+            </Link>
+            <p className="text-sm text-gray-600">{device.crop_type}</p>
+          </div>
+        </div>
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <p className="text-sm text-gray-600">No sensor data available</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <Link 
-            to={`/device/${sensor.id}`}
+          <Link
+            to={`/device/${device.kit_id}`}
             className="text-lg font-semibold text-gray-900 hover:text-green-600 transition-colors"
           >
-            {sensor.deviceName}
+            {device.location_name}
           </Link>
-          <p className="text-sm text-gray-600">{sensor.location}</p>
+          <p className="text-sm text-gray-600">{device.crop_type}</p>
+          <p className="text-sm text-gray-600">Kit ID: {device.kit_id}</p>
         </div>
         <div className="flex items-center space-x-2">
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(sensor.status)}`}>
-            {sensor.status}
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(sensor.moisture)}`}>
+            {sensor.moisture >= 40 ? 'Optimal' : sensor.moisture >= 30 ? 'Warning' : 'Low'}
           </span>
-          {sensor.irrigationActive && (
+          {sensor.is_irrigating && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
               💧 Watering
             </span>
@@ -106,10 +112,10 @@ function SensorReading({ sensor }: SensorReadingProps) {
 
       {/* Footer */}
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-        <p className="text-xs text-gray-500">Updated {sensor.lastUpdate}</p>
+        <p className="text-xs text-gray-500">Updated {new Date(sensor.timestamp).toLocaleString()}</p>
         <div className="flex space-x-2">
-          <Link 
-            to={`/device/${sensor.id}`}
+          <Link
+            to={`/device/${device.kit_id}`}
             className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors group relative"
             title="View Device Details"
           >
@@ -121,9 +127,9 @@ function SensorReading({ sensor }: SensorReadingProps) {
               View Details
             </div>
           </Link>
-          
-          <Link 
-            to={`/device/${sensor.id}/history`}
+
+          <Link
+            to={`/device/${device.kit_id}/history`}
             className="text-gray-600 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-50 transition-colors group relative"
             title="View Historical Data"
           >
@@ -134,15 +140,15 @@ function SensorReading({ sensor }: SensorReadingProps) {
               View History
             </div>
           </Link>
-          
-          <button 
+
+          <button
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 group relative ${
-              sensor.irrigationActive 
-                ? 'text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200' 
+              sensor.is_irrigating
+                ? 'text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200'
                 : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-200'
             }`}
           >
-            {sensor.irrigationActive ? (
+            {sensor.is_irrigating ? (
               <>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -159,7 +165,7 @@ function SensorReading({ sensor }: SensorReadingProps) {
               </>
             )}
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none z-10">
-              {sensor.irrigationActive ? 'Stop watering this zone' : 'Start watering this zone'}
+              {sensor.is_irrigating ? 'Stop watering this zone' : 'Start watering this zone'}
             </div>
           </button>
         </div>

@@ -1,71 +1,79 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import DeviceCard from '../components/DeviceCard';
+import NoDevices from '../components/NoDevices';
+import Loader from '../components/Loader';
+import { getDevicesSummary, createKit } from '../api/assets';
+import { DeviceSummary } from '../types/api';
+import { useToasts } from '../hooks/useToasts';
 
 function Devices() {
   const [showAddDevice, setShowAddDevice] = useState(false);
-  const [devices] = useState([
-    {
-      id: 1,
-      name: 'Field A - Zone 1',
-      location: 'North Field',
-      status: 'active',
-      batteryLevel: 85,
-      signalStrength: 4,
-      lastSeen: '2 minutes ago',
-      cropType: 'Corn',
-      installDate: '2024-03-15',
-      firmwareVersion: '2.1.3'
-    },
-    {
-      id: 2,
-      name: 'Field B - Zone 2',
-      location: 'South Field',
-      status: 'active',
-      batteryLevel: 92,
-      signalStrength: 5,
-      lastSeen: '1 minute ago',
-      cropType: 'Soybeans',
-      installDate: '2024-03-10',
-      firmwareVersion: '2.1.3'
-    },
-    {
-      id: 3,
-      name: 'Field A - Zone 3',
-      location: 'North Field',
-      status: 'active',
-      batteryLevel: 78,
-      signalStrength: 3,
-      lastSeen: '3 minutes ago',
-      cropType: 'Corn',
-      installDate: '2024-03-20',
-      firmwareVersion: '2.1.2'
-    },
-    {
-      id: 4,
-      name: 'Field C - Zone 1',
-      location: 'East Field',
-      status: 'offline',
-      batteryLevel: 23,
-      signalStrength: 1,
-      lastSeen: '2 hours ago',
-      cropType: 'Wheat',
-      installDate: '2024-02-28',
-      firmwareVersion: '2.1.1'
-    },
-    {
-      id: 5,
-      name: 'Field D - Zone 1',
-      location: 'West Field',
-      status: 'maintenance',
-      batteryLevel: 0,
-      signalStrength: 0,
-      lastSeen: '1 day ago',
-      cropType: 'Barley',
-      installDate: '2024-02-15',
-      firmwareVersion: '2.0.8'
+  const [devices, setDevices] = useState<DeviceSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { addToast } = useToasts();
+  const [newDevice, setNewDevice] = useState({
+    location_name: '',
+    crop_type: '',
+    latitude: 0,
+    longitude: 0,
+    reading_interval_active_min: 5,
+    reading_interval_idle_min: 30,
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const numericFields = ['latitude', 'longitude', 'reading_interval_active_min', 'reading_interval_idle_min'];
+    if (numericFields.includes(name)) {
+      setNewDevice((prev) => ({ ...prev, [name]: parseFloat(value) }));
+    } else {
+      setNewDevice((prev) => ({ ...prev, [name]: value }));
     }
-  ]);
+  };
+
+  const handleAddDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Attempting to add device with data:', newDevice);
+    try {
+      const createdKit = await createKit(newDevice);
+      setDevices((prev) => [...prev, createdKit]);
+      setShowAddDevice(false);
+      addToast('Device added successfully!', 'success');
+    } catch (err) {
+      console.error('Failed to add device:', err);
+      addToast('Failed to add device.', 'error');
+    }
+  };
+
+
+  useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const data = await getDevicesSummary();
+        setDevices(data);
+      } catch (err) {
+        setError('Failed to fetch devices');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDevices();
+  }, []);
+  const activeDevices = devices.filter((device) => device.is_active).length;
+  const offlineDevices = devices.filter((device) => !device.is_active).length;
+  // TODO: Add maintenance status
+  const maintenanceDevices = devices.filter((device) => device.maintenance).length;
+  const avgBattery =
+    devices.length > 0
+      ? Math.round(
+          devices.reduce((acc, device) => {
+            return acc + (device.latest_sensor_data?.battery ?? 0);
+          }, 0) / devices.length
+        )
+      : 0;
+
 
   return (
     <Layout>
@@ -98,7 +106,7 @@ function Devices() {
               </div>
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-gray-600">Active</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">3</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{activeDevices}</p>
               </div>
             </div>
           </div>
@@ -112,7 +120,7 @@ function Devices() {
               </div>
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-gray-600">Offline</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">1</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{offlineDevices}</p>
               </div>
             </div>
           </div>
@@ -127,7 +135,7 @@ function Devices() {
               </div>
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-gray-600">Maintenance</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">1</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{maintenanceDevices}</p>
               </div>
             </div>
           </div>
@@ -141,7 +149,7 @@ function Devices() {
               </div>
               <div className="ml-3 sm:ml-4">
                 <p className="text-xs sm:text-sm font-medium text-gray-600">Avg Battery</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">76%</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{avgBattery}%</p>
               </div>
             </div>
           </div>
@@ -173,11 +181,19 @@ function Devices() {
         </div>
 
         {/* Devices Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {devices.map((device) => (
-            <DeviceCard key={device.id} device={device} />
-          ))}
-        </div>
+        {loading ? (
+          <Loader />
+        ) : error ? (
+          <p className="text-red-500">{error}</p>
+        ) : devices.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {devices.map((device) => (
+              <DeviceCard key={device.kit_id} device={device} />
+            ))}
+          </div>
+        ) : (
+          <NoDevices onAddDevice={() => setShowAddDevice(true)} />
+        )}
 
         {/* Add Device Modal */}
         {showAddDevice && (
@@ -195,35 +211,91 @@ function Devices() {
                 </button>
               </div>
               
-              <form className="space-y-4">
+              <form className="space-y-4" onSubmit={handleAddDevice}>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Device Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location Name</label>
                   <input
                     type="text"
+                    name="location_name"
+                    value={newDevice.location_name}
+                    onChange={handleInputChange}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="e.g., Field E - Zone 1"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="e.g., North Field"
+                    placeholder="e.g., North Field, Zone A"
+                    required
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Crop Type</label>
-                  <select className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
-                    <option value="">Select crop type</option>
-                    <option value="corn">Corn</option>
-                    <option value="soybeans">Soybeans</option>
-                    <option value="wheat">Wheat</option>
-                    <option value="barley">Barley</option>
-                    <option value="other">Other</option>
-                  </select>
+                  <input
+                    type="text"
+                    name="crop_type"
+                    value={newDevice.crop_type}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g., Maize"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      name="latitude"
+                      step="0.000001"
+                      value={newDevice.latitude}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., -1.17"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                    <input
+                      type="number"
+                      name="longitude"
+                      step="0.000001"
+                      value={newDevice.longitude}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., 36.95"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Active Interval (min)</label>
+                    <input
+                      type="number"
+                      name="reading_interval_active_min"
+                      min="1"
+                      value={newDevice.reading_interval_active_min}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., 5"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Idle Interval (min)</label>
+                    <input
+                      type="number"
+                      name="reading_interval_idle_min"
+                      min="1"
+                      value={newDevice.reading_interval_idle_min}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., 30"
+                      required
+                    />
+                  </div>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">

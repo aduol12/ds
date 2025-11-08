@@ -1,23 +1,9 @@
     import { useState } from 'react';
 import { Link } from 'react-router-dom';
-
-interface Device {
-  id: number;
-  name: string;
-  location: string;
-  status: 'active' | 'offline' | 'maintenance';
-  batteryLevel: number;
-  signalStrength: number;
-  lastSeen: string;
-  cropType: string;
-  installDate: string;
-  firmwareVersion: string;
-  latitude?: number;
-  longitude?: number;
-}
+import { DeviceSummary } from '../types/api';
 
 interface DeviceCardProps {
-  device: Device;
+  device: DeviceSummary;
 }
 
 function DeviceCard({ device }: DeviceCardProps) {
@@ -34,14 +20,14 @@ function DeviceCard({ device }: DeviceCardProps) {
     { day: 'sunday', enabled: false, times: ['06:00'] }
   ]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800 border-green-200';
-      case 'offline': return 'bg-red-100 text-red-800 border-red-200';
-      case 'maintenance': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+  const getStatus = (device: DeviceSummary) => {
+    if (!device.is_active) return { text: 'Offline', color: 'bg-red-100 text-red-800 border-red-200' };
+    // TODO: Add logic for maintenance status
+    return { text: 'Active', color: 'bg-green-100 text-green-800 border-green-200' };
   };
+
+  const status = getStatus(device);
+  const latestData = device.latest_sensor_data;
 
   const getBatteryColor = (level: number) => {
     if (level > 50) return 'text-green-600';
@@ -66,35 +52,35 @@ function DeviceCard({ device }: DeviceCardProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">{device.name}</h3>
-          <p className="text-sm text-gray-600">{device.location}</p>
+          <h3 className="text-lg font-semibold text-gray-900">{device.location_name}</h3>
+          <p className="text-sm text-gray-600">{device.crop_type}</p>
         </div>
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(device.status)}`}>
-          {device.status}
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${status.color}`}>
+          {status.text}
         </span>
       </div>
 
       {/* Status Indicators */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="flex items-center space-x-2">
-          <svg className={`h-5 w-5 ${getBatteryColor(device.batteryLevel)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`h-5 w-5 ${getBatteryColor(latestData?.battery ?? 0)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           <div>
             <p className="text-sm text-gray-600">Battery</p>
-            <p className={`font-medium ${getBatteryColor(device.batteryLevel)}`}>
-              {device.batteryLevel}%
+            <p className={`font-medium ${getBatteryColor(latestData?.battery ?? 0)}`}>
+              {latestData?.battery ?? 'N/A'}%
             </p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
           <div className="flex items-end space-x-0.5 h-5">
-            {getSignalBars(device.signalStrength)}
+            {getSignalBars(latestData?.signal ? Math.round(latestData.signal / 20) : 0)}
           </div>
           <div>
             <p className="text-sm text-gray-600">Signal</p>
-            <p className="font-medium text-gray-900">{device.signalStrength}/5</p>
+            <p className="font-medium text-gray-900">{latestData?.signal ? `${Math.round(latestData.signal / 20)}/5` : 'N/A'}</p>
           </div>
         </div>
       </div>
@@ -102,20 +88,24 @@ function DeviceCard({ device }: DeviceCardProps) {
       {/* Device Details */}
       <div className="space-y-2 mb-4">
         <div className="flex justify-between text-sm">
+          <span className="text-gray-600">Kit ID:</span>
+          <span className="font-medium">{device.kit_id}</span>
+        </div>
+        <div className="flex justify-between text-sm">
           <span className="text-gray-600">Crop Type:</span>
-          <span className="font-medium">{device.cropType}</span>
+          <span className="font-medium">{device.crop_type}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Installed:</span>
-          <span className="font-medium">{new Date(device.installDate).toLocaleDateString()}</span>
+          <span className="font-medium">{new Date(device.created_at).toLocaleDateString()}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Firmware:</span>
-          <span className="font-medium">{device.firmwareVersion}</span>
+          <span className="font-medium">{latestData?.firmware ?? 'N/A'}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Last Seen:</span>
-          <span className="font-medium">{device.lastSeen}</span>
+          <span className="font-medium">{latestData ? new Date(latestData.timestamp).toLocaleString() : 'N/A'}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Latitude:</span>
@@ -130,7 +120,7 @@ function DeviceCard({ device }: DeviceCardProps) {
       {/* Action Buttons */}
       <div className="flex space-x-2 pt-4 border-t border-gray-200">
         <Link 
-          to={`/device/${device.id}`}
+          to={`/device/${device.kit_id}`}
           className="flex-1 text-sm text-blue-600 hover:text-blue-700 font-medium py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center group relative"
           title="View Device Details"
         >
@@ -144,7 +134,7 @@ function DeviceCard({ device }: DeviceCardProps) {
         </Link>
         
         <Link 
-          to={`/device/${device.id}/history`}
+          to={`/device/${device.kit_id}/history`}
           className="flex-1 text-sm text-gray-600 hover:text-gray-700 font-medium py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center group relative"
           title="View Historical Data"
         >
@@ -221,7 +211,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Device Name</label>
                   <input
                     type="text"
-                    defaultValue={device.name}
+                    defaultValue={device.location_name}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -230,7 +220,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                   <input
                     type="text"
-                    defaultValue={device.location}
+                    defaultValue={device.location_name}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -262,7 +252,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Crop Type</label>
                   <select 
-                    defaultValue={device.cropType.toLowerCase()}
+                    defaultValue={device.crop_type.toLowerCase()}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="corn">Corn</option>

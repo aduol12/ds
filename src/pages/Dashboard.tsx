@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
+import Loader from '../components/Loader';
 import { getDashboardSummary } from '../api/data';
 import { getAllAlerts } from '../api/alerts';
 import { getWeatherData } from '../api/weather';
@@ -157,7 +158,7 @@ function Dashboard() {
           </div>
         )}
 
-        {loading && <p>Loading...</p>}
+        {loading && <Loader />}
         {error && <p className="text-red-500">{error}</p>}
         {!loading && !error && (
         <>

@@ -39,3 +39,8 @@ export const updateKitConfiguration = async (kitId: string, data: any) => {
   const response = await client.put(`/api/assets/config/${kitId}`, data);
   return response.data;
 };
+
+export const getDevicesSummary = async () => {
+  const response = await client.get('/api/data/summary');
+  return response.data;
+};

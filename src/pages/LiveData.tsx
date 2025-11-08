@@ -1,69 +1,65 @@
-  import Layout from '../components/Layout';
+import { useState, useEffect } from 'react';
+import Layout from '../components/Layout';
 import SensorReading from '../components/SensorReading';
+import NoDevices from '../components/NoDevices';
+import Loader from '../components/Loader';
+import { getDevicesSummary, createKit } from '../api/assets';
+import { DeviceSummary } from '../types/api';
+import { useToasts } from '../hooks/useToasts';
 
 function LiveData() {
-  const mockSensorData = [
-    {
-      id: 1,
-      deviceName: 'Field A - Zone 1',
-      location: 'North Field',
-      moisture: 45,
-      temperature: 24,
-      ph: 6.8,
-      ec: 1.2,
-      nitrogen: 85,
-      phosphorus: 42,
-      potassium: 78,
-      lastUpdate: '2 minutes ago',
-      status: 'optimal',
-      irrigationActive: false
-    },
-    {
-      id: 2,
-      deviceName: 'Field B - Zone 2',
-      location: 'South Field',
-      moisture: 28,
-      temperature: 26,
-      ph: 7.1,
-      ec: 1.5,
-      nitrogen: 62,
-      phosphorus: 38,
-      potassium: 55,
-      lastUpdate: '1 minute ago',
-      status: 'low',
-      irrigationActive: true
-    },
-    {
-      id: 3,
-      deviceName: 'Field A - Zone 3',
-      location: 'North Field',
-      moisture: 52,
-      temperature: 23,
-      ph: 6.9,
-      ec: 1.1,
-      nitrogen: 92,
-      phosphorus: 45,
-      potassium: 82,
-      lastUpdate: '3 minutes ago',
-      status: 'optimal',
-      irrigationActive: false
-    },
-    {
-      id: 4,
-      deviceName: 'Field C - Zone 1',
-      location: 'East Field',
-      moisture: 31,
-      temperature: 25,
-      ph: 7.3,
-      ec: 1.8,
-      nitrogen: 71,
-      phosphorus: 35,
-      potassium: 63,
-      lastUpdate: '1 minute ago',
-      status: 'warning',
-      irrigationActive: false
+  const [devices, setDevices] = useState<DeviceSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showAddDevice, setShowAddDevice] = useState(false);
+  const { addToast } = useToasts();
+  const [newDevice, setNewDevice] = useState({
+    location_name: '',
+    crop_type: '',
+    latitude: 0,
+    longitude: 0,
+    reading_interval_active_min: 5,
+    reading_interval_idle_min: 30,
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const numericFields = ['latitude', 'longitude', 'reading_interval_active_min', 'reading_interval_idle_min'];
+    if (numericFields.includes(name)) {
+      setNewDevice((prev) => ({ ...prev, [name]: parseFloat(value) }));
+    } else {
+      setNewDevice((prev) => ({ ...prev, [name]: value }));
     }
-  ];
+  };
+
+  const handleAddDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Attempting to add device with data:', newDevice);
+    try {
+      const createdKit = await createKit(newDevice);
+      setDevices((prev) => [...prev, createdKit]);
+      setShowAddDevice(false);
+      addToast('Device added successfully!', 'success');
+    } catch (err) {
+      console.error('Failed to add device:', err);
+      addToast('Failed to add device.', 'error');
+    }
+  };
+
+  useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const data = await getDevicesSummary();
+        setDevices(data);
+      } catch (err) {
+        setError('Failed to fetch devices');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDevices();
+  }, []);
 
   return (
     <Layout>
@@ -115,11 +111,142 @@ function LiveData() {
         </div>
 
         {/* Sensor Readings Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {mockSensorData.map((sensor) => (
-            <SensorReading key={sensor.id} sensor={sensor} />
-          ))}
-        </div>
+        {loading ? (
+          <Loader />
+        ) : error ? (
+          <p className="text-red-500">{error}</p>
+        ) : devices.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {devices.map((device) => (
+              <SensorReading key={device.kit_id} device={device} />
+            ))}
+          </div>
+        ) : (
+          <NoDevices onAddDevice={() => setShowAddDevice(true)} />
+        )}
+
+        {/* Add Device Modal */}
+        {showAddDevice && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Add New Device</h3>
+                <button
+                  onClick={() => setShowAddDevice(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <form className="space-y-4" onSubmit={handleAddDevice}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location Name</label>
+                  <input
+                    type="text"
+                    name="location_name"
+                    value={newDevice.location_name}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g., North Field, Zone A"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Crop Type</label>
+                  <input
+                    type="text"
+                    name="crop_type"
+                    value={newDevice.crop_type}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="e.g., Maize"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      name="latitude"
+                      step="0.000001"
+                      value={newDevice.latitude}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., -1.17"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+                    <input
+                      type="number"
+                      name="longitude"
+                      step="0.000001"
+                      value={newDevice.longitude}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., 36.95"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Active Interval (min)</label>
+                    <input
+                      type="number"
+                      name="reading_interval_active_min"
+                      min="1"
+                      value={newDevice.reading_interval_active_min}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., 5"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Idle Interval (min)</label>
+                    <input
+                      type="number"
+                      name="reading_interval_idle_min"
+                      min="1"
+                      value={newDevice.reading_interval_idle_min}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                      placeholder="e.g., 30"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddDevice(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Add Device
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Emergency Controls */}
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6">
