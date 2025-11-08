@@ -11,33 +11,40 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import DeviceHistory from './pages/DeviceHistory';
 import DeviceDetail from './pages/DeviceDetail';
+import { ToastsContainer } from './components/Toast';
+import { useToasts } from './hooks/useToasts';
 
 function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        {/* Authentication routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        
-        {/* Main app routes - Dashboard is now the default */}
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/devices" element={<Devices />} />
-        <Route path="/device/:id" element={<DeviceDetail />} />
-        <Route path="/device/:deviceId/history" element={<DeviceHistory />} />
-        <Route path="/live-data" element={<LiveData />} />
-        <Route path="/action-plans" element={<ActionPlans />} />
-        
-        {/* Profile & Settings routes */}
-        <Route path="/profile" element={<EditProfile />} />
-        <Route path="/subscription" element={<Subscription />} />
-        <Route path="/settings" element={<Settings />} />
+  const { toasts, removeToast } = useToasts();
 
-        {/* IMPORTANT: DO NOT place any routes below this. */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+  return (
+    <>
+      <ToastsContainer toasts={toasts} onDismiss={removeToast} />
+      <BrowserRouter>
+        <Routes>
+          {/* Authentication routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* Main app routes - Dashboard is now the default */}
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/devices" element={<Devices />} />
+          <Route path="/device/:id" element={<DeviceDetail />} />
+          <Route path="/device/:deviceId/history" element={<DeviceHistory />} />
+          <Route path="/live-data" element={<LiveData />} />
+          <Route path="/action-plans" element={<ActionPlans />} />
+          
+          {/* Profile & Settings routes */}
+          <Route path="/profile" element={<EditProfile />} />
+          <Route path="/subscription" element={<Subscription />} />
+          <Route path="/settings" element={<Settings />} />
+
+          {/* IMPORTANT: DO NOT place any routes below this. */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </>
   );
 }
 

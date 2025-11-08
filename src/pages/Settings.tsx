@@ -1,63 +1,81 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { getUserProfile, updateUserSettings } from '../api/users';
+import { UserSettings } from '../types/api';
+import { useToasts } from '../hooks/useToasts';
+
+const defaultSettings: UserSettings = {
+  notify_email_alerts: true,
+  notify_sms_alerts: false,
+  notify_push: false,
+  alert_weekly_reports: true,
+  alert_maintenance: true,
+  alert_low_battery: true,
+  alert_moisture: true,
+  alert_temperature: false,
+  theme: 'light',
+  language: 'en',
+  timezone: 'UTC',
+  date_format: 'MM/DD/YYYY',
+  temp_unit: 'C',
+  measurement_unit: 'Metric',
+  share_data: false,
+  usage_analytics: true,
+  marketing_emails: false,
+  third_party_integrations: false,
+  two_factor_enabled: false,
+};
 
 function Settings() {
-  const [notifications, setNotifications] = useState({
-    emailAlerts: true,
-    smsAlerts: true,
-    pushNotifications: false,
-    weeklyReports: true,
-    maintenanceReminders: true,
-    lowBatteryAlerts: true,
-    moistureAlerts: true,
-    temperatureAlerts: false
-  });
-
-  const [privacy, setPrivacy] = useState({
-    dataSharing: false,
-    analytics: true,
-    marketingEmails: false,
-    thirdPartyIntegrations: true
-  });
-
-  const [system, setSystem] = useState({
-    theme: 'light',
-    language: 'English',
-    timezone: 'America/Detroit',
-    dateFormat: 'MM/DD/YYYY',
-    temperatureUnit: 'Celsius',
-    measurementUnit: 'Metric'
-  });
-
+  const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [loading, setLoading] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const { addToast } = useToasts();
 
-  const handleNotificationChange = (key: string) => {
-    setNotifications(prev => ({
-      ...prev,
-      [key]: !prev[key as keyof typeof prev]
-    }));
+  useEffect(() => {
+    const fetchSettings = async () => {
+      setLoading(true);
+      try {
+        const userData = await getUserProfile();
+        // If settings are null or undefined, use the default settings
+        setSettings(userData.settings || defaultSettings);
+      } catch (error) {
+        console.error('Failed to fetch settings', error);
+        addToast('Failed to load settings. Using default values.', 'error');
+        setSettings(defaultSettings); // Fallback to default on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, [addToast]);
+
+  const handleSettingChange = (key: keyof UserSettings, value: any) => {
+    if (settings) {
+      setSettings({ ...settings, [key]: value });
+    }
   };
 
-  const handlePrivacyChange = (key: string) => {
-    setPrivacy(prev => ({
-      ...prev,
-      [key]: !prev[key as keyof typeof prev]
-    }));
+  const handleSaveSettings = async () => {
+    if (!settings) return;
+
+    try {
+      await updateUserSettings(settings);
+      addToast('Settings saved successfully!', 'success');
+    } catch (error) {
+      console.error('Failed to save settings', error);
+      addToast('Failed to save settings.', 'error');
+    }
   };
 
-  const handleSystemChange = (key: string, value: string) => {
-    setSystem(prev => ({
-      ...prev,
-      [key]: value
-    }));
-  };
+  if (loading) {
+    return <Layout><div>Loading settings...</div></Layout>;
+  }
 
-  const handleSaveSettings = () => {
-    // Mock save
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
-  };
+  if (!settings) {
+    return <Layout><div>Could not load settings. Please try again later.</div></Layout>;
+  }
 
   return (
     <Layout>
@@ -76,18 +94,6 @@ function Settings() {
           </button>
         </div>
 
-        {/* Success Message */}
-        {showSuccess && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-green-700 font-medium">Settings saved successfully!</p>
-            </div>
-          </div>
-        )}
-
         {/* Notification Settings */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Notification Preferences</h2>
@@ -98,14 +104,14 @@ function Settings() {
                 <p className="text-sm text-gray-600">Receive important alerts via email</p>
               </div>
               <button
-                onClick={() => handleNotificationChange('emailAlerts')}
+                onClick={() => handleSettingChange('notify_email_alerts', !settings.notify_email_alerts)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.emailAlerts ? 'bg-green-600' : 'bg-gray-200'
+                  settings.notify_email_alerts ? 'bg-green-600' : 'bg-gray-200'
                 }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    notifications.emailAlerts ? 'translate-x-6' : 'translate-x-1'
+                    settings.notify_email_alerts ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
@@ -117,14 +123,14 @@ function Settings() {
                 <p className="text-sm text-gray-600">Receive urgent alerts via text message</p>
               </div>
               <button
-                onClick={() => handleNotificationChange('smsAlerts')}
+                onClick={() => handleSettingChange('notify_sms_alerts', !settings.notify_sms_alerts)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.smsAlerts ? 'bg-green-600' : 'bg-gray-200'
+                  settings.notify_sms_alerts ? 'bg-green-600' : 'bg-gray-200'
                 }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    notifications.smsAlerts ? 'translate-x-6' : 'translate-x-1'
+                    settings.notify_sms_alerts ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
@@ -136,14 +142,14 @@ function Settings() {
                 <p className="text-sm text-gray-600">Receive notifications in your browser</p>
               </div>
               <button
-                onClick={() => handleNotificationChange('pushNotifications')}
+                onClick={() => handleSettingChange('notify_push', !settings.notify_push)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  notifications.pushNotifications ? 'bg-green-600' : 'bg-gray-200'
+                  settings.notify_push ? 'bg-green-600' : 'bg-gray-200'
                 }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    notifications.pushNotifications ? 'translate-x-6' : 'translate-x-1'
+                    settings.notify_push ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>
@@ -153,11 +159,11 @@ function Settings() {
               <h3 className="font-medium text-gray-900 mb-3">Alert Types</h3>
               <div className="space-y-3">
                 {[
-                  { key: 'weeklyReports', label: 'Weekly Reports', desc: 'Summary of your farm data' },
-                  { key: 'maintenanceReminders', label: 'Maintenance Reminders', desc: 'Device maintenance notifications' },
-                  { key: 'lowBatteryAlerts', label: 'Low Battery Alerts', desc: 'When device batteries are low' },
-                  { key: 'moistureAlerts', label: 'Moisture Alerts', desc: 'Critical soil moisture levels' },
-                  { key: 'temperatureAlerts', label: 'Temperature Alerts', desc: 'Extreme temperature conditions' }
+                  { key: 'alert_weekly_reports', label: 'Weekly Reports', desc: 'Summary of your farm data' },
+                  { key: 'alert_maintenance', label: 'Maintenance Reminders', desc: 'Device maintenance notifications' },
+                  { key: 'alert_low_battery', label: 'Low Battery Alerts', desc: 'When device batteries are low' },
+                  { key: 'alert_moisture', label: 'Moisture Alerts', desc: 'Critical soil moisture levels' },
+                  { key: 'alert_temperature', label: 'Temperature Alerts', desc: 'Extreme temperature conditions' }
                 ].map((item) => (
                   <div key={item.key} className="flex items-center justify-between">
                     <div>
@@ -165,14 +171,14 @@ function Settings() {
                       <p className="text-xs text-gray-600">{item.desc}</p>
                     </div>
                     <button
-                      onClick={() => handleNotificationChange(item.key)}
+                      onClick={() => handleSettingChange(item.key as keyof UserSettings, !settings[item.key as keyof UserSettings])}
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                        notifications[item.key as keyof typeof notifications] ? 'bg-green-600' : 'bg-gray-200'
+                        settings[item.key as keyof UserSettings] ? 'bg-green-600' : 'bg-gray-200'
                       }`}
                     >
                       <span
                         className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                          notifications[item.key as keyof typeof notifications] ? 'translate-x-5' : 'translate-x-1'
+                          settings[item.key as keyof UserSettings] ? 'translate-x-5' : 'translate-x-1'
                         }`}
                       />
                     </button>
@@ -190,8 +196,8 @@ function Settings() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Theme</label>
               <select
-                value={system.theme}
-                onChange={(e) => handleSystemChange('theme', e.target.value)}
+                value={settings.theme}
+                onChange={(e) => handleSettingChange('theme', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="light">Light</option>
@@ -203,35 +209,36 @@ function Settings() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
               <select
-                value={system.language}
-                onChange={(e) => handleSystemChange('language', e.target.value)}
+                value={settings.language}
+                onChange={(e) => handleSettingChange('language', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                <option value="English">English</option>
-                <option value="Spanish">Spanish</option>
-                <option value="French">French</option>
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
               <select
-                value={system.timezone}
-                onChange={(e) => handleSystemChange('timezone', e.target.value)}
+                value={settings.timezone}
+                onChange={(e) => handleSettingChange('timezone', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="America/Detroit">Eastern Time</option>
                 <option value="America/Chicago">Central Time</option>
                 <option value="America/Denver">Mountain Time</option>
                 <option value="America/Los_Angeles">Pacific Time</option>
+                <option value="UTC">UTC</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date Format</label>
               <select
-                value={system.dateFormat}
-                onChange={(e) => handleSystemChange('dateFormat', e.target.value)}
+                value={settings.date_format}
+                onChange={(e) => handleSettingChange('date_format', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -243,20 +250,20 @@ function Settings() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Temperature Unit</label>
               <select
-                value={system.temperatureUnit}
-                onChange={(e) => handleSystemChange('temperatureUnit', e.target.value)}
+                value={settings.temp_unit}
+                onChange={(e) => handleSettingChange('temp_unit', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
-                <option value="Celsius">Celsius (°C)</option>
-                <option value="Fahrenheit">Fahrenheit (°F)</option>
+                <option value="C">Celsius (°C)</option>
+                <option value="F">Fahrenheit (°F)</option>
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Measurement Unit</label>
               <select
-                value={system.measurementUnit}
-                onChange={(e) => handleSystemChange('measurementUnit', e.target.value)}
+                value={settings.measurement_unit}
+                onChange={(e) => handleSettingChange('measurement_unit', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="Metric">Metric</option>
@@ -271,10 +278,10 @@ function Settings() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Privacy & Data</h2>
           <div className="space-y-4">
             {[
-              { key: 'dataSharing', label: 'Data Sharing', desc: 'Share anonymized data to improve our services' },
-              { key: 'analytics', label: 'Usage Analytics', desc: 'Help us improve the app with usage data' },
-              { key: 'marketingEmails', label: 'Marketing Emails', desc: 'Receive updates about new features and offers' },
-              { key: 'thirdPartyIntegrations', label: 'Third-party Integrations', desc: 'Allow connections to external services' }
+              { key: 'share_data', label: 'Data Sharing', desc: 'Share anonymized data to improve our services' },
+              { key: 'usage_analytics', label: 'Usage Analytics', desc: 'Help us improve the app with usage data' },
+              { key: 'marketing_emails', label: 'Marketing Emails', desc: 'Receive updates about new features and offers' },
+              { key: 'third_party_integrations', label: 'Third-party Integrations', desc: 'Allow connections to external services' }
             ].map((item) => (
               <div key={item.key} className="flex items-center justify-between">
                 <div>
@@ -282,14 +289,14 @@ function Settings() {
                   <p className="text-sm text-gray-600">{item.desc}</p>
                 </div>
                 <button
-                  onClick={() => handlePrivacyChange(item.key)}
+                  onClick={() => handleSettingChange(item.key as keyof UserSettings, !settings[item.key as keyof UserSettings])}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    privacy[item.key as keyof typeof privacy] ? 'bg-green-600' : 'bg-gray-200'
+                    settings[item.key as keyof UserSettings] ? 'bg-green-600' : 'bg-gray-200'
                   }`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      privacy[item.key as keyof typeof privacy] ? 'translate-x-6' : 'translate-x-1'
+                      settings[item.key as keyof UserSettings] ? 'translate-x-6' : 'translate-x-1'
                     }`}
                   />
                 </button>
@@ -317,8 +324,11 @@ function Settings() {
                 <h3 className="font-medium text-gray-900">Two-Factor Authentication</h3>
                 <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
               </div>
-              <button className="text-green-600 hover:text-green-700 font-medium">
-                Enable 2FA
+              <button 
+                onClick={() => handleSettingChange('two_factor_enabled', !settings.two_factor_enabled)}
+                className="text-green-600 hover:text-green-700 font-medium"
+              >
+                {settings.two_factor_enabled ? 'Disable 2FA' : 'Enable 2FA'}
               </button>
             </div>
 

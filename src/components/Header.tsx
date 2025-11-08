@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getUserProfile } from '../api/users';
+import { User } from '../types/api';
+import { logout } from '../api/auth';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -8,23 +11,38 @@ interface HeaderProps {
 
 function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const userData = await getUserProfile();
+        setUser(userData);
+      } catch (error) {
+        console.error("Failed to fetch user profile for header", error);
+        if ((error as any)?.response?.status === 401) {
+            logout();
+        }
+      }
+    };
+
+    fetchUser();
+  }, []);
+
   const handleSignOut = () => {
-    // Clear any stored authentication data
-    localStorage.removeItem('authToken');
-    sessionStorage.clear();
-    
-    // Redirect to login page
-    navigate('/login');
-    
-    // Close dropdown
+    logout();
     setShowProfileDropdown(false);
   };
 
   const closeDropdown = () => {
     setShowProfileDropdown(false);
   };
+
+  const getInitials = (firstName?: string, lastName?: string) => {
+    if (!firstName || !lastName) return '';
+    return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  }
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 fixed top-0 left-0 right-0 z-30">
@@ -79,11 +97,15 @@ function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
                 className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-gray-900">John Farmer</p>
+                  <p className="text-sm font-medium text-gray-900">{user ? `${user.first_name} ${user.last_name}` : '...'}</p>
                   <p className="text-xs text-gray-500">Premium Plan</p>
                 </div>
-                <div className="h-8 w-8 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
-                  JF
+                <div className="h-8 w-8 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-medium text-sm overflow-hidden">
+                  {user?.profile_picture_url ? (
+                    <img src={user.profile_picture_url} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <span>{user ? getInitials(user.first_name, user.last_name) : ''}</span>
+                  )}
                 </div>
                 <svg className="h-4 w-4 text-gray-400 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -91,18 +113,22 @@ function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
               </button>
 
               {/* Profile Dropdown */}
-              {showProfileDropdown && (
+              {showProfileDropdown && user && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
                   {/* Profile Header */}
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      <div className="h-12 w-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-medium text-lg">
-                        JF
+                      <div className="h-12 w-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-medium text-lg overflow-hidden">
+                        {user.profile_picture_url ? (
+                          <img src={user.profile_picture_url} alt="Profile" className="h-full w-full object-cover" />
+                        ) : (
+                          <span>{getInitials(user.first_name, user.last_name)}</span>
+                        )}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">John Farmer</p>
-                        <p className="text-sm text-gray-500">john.farmer@email.com</p>
-                        <p className="text-xs text-gray-400">+1 (555) 123-4567</p>
+                        <p className="font-medium text-gray-900">{`${user.first_name} ${user.last_name}`}</p>
+                        <p className="text-sm text-gray-500">{user.email}</p>
+                        <p className="text-xs text-gray-400">{user.phone_number}</p>
                       </div>
                     </div>
                   </div>

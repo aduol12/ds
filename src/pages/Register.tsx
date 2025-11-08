@@ -11,6 +11,12 @@ function Register() {
     password: '',
     confirmPassword: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  // useNavigate for client-side routing after success
+  const navigate = (window as any).location ? undefined : undefined;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
@@ -19,10 +25,46 @@ function Register() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock registration - redirect to dashboard
-    window.location.href = '/';
+    setError(null);
+    setSuccess(null);
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    // split full name into first and last
+    const names = formData.farmerName.trim().split(' ');
+    const first_name = names.shift() || '';
+    const last_name = names.join(' ') || '';
+
+    const payload = {
+      email: formData.email,
+      first_name,
+      last_name,
+      phone_number: formData.phoneNumber,
+      password: formData.password,
+      date_of_birth: formData.dateOfBirth,
+      gender: formData.gender
+    };
+
+    try {
+      setLoading(true);
+      // dynamic import to avoid circular deps and keep initial bundle small
+      const { register } = await import('../api/auth');
+      await register(payload as any);
+      setSuccess('Account created successfully. Redirecting to login...');
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1200);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Registration failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
