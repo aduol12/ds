@@ -16,3 +16,8 @@ export const getDashboardSummary = async () => {
   const response = await client.get('/api/data/summary');
   return response.data;
 };
+
+export const getAllLatestSensorData = async () => {
+  const response = await client.get('/data/live');
+  return response.data;
+};

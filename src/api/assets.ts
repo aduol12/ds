@@ -6,7 +6,7 @@ export const createKit = async (data: any) => {
 };
 
 export const getAllKits = async () => {
-  const response = await client.get('/assets/kit');
+  const response = await client.get('/api/assets/kit');
   return response.data;
 };
 

@@ -3,7 +3,8 @@ import Layout from '../components/Layout';
 import SensorReading from '../components/SensorReading';
 import NoDevices from '../components/NoDevices';
 import Loader from '../components/Loader';
-import { getDevicesSummary, createKit } from '../api/assets';
+import { getAllKits } from '../api/assets';
+import { getLatestSensorData } from '../api/data';
 import { DeviceSummary } from '../types/api';
 import { useToasts } from '../hooks/useToasts';
 
@@ -36,10 +37,9 @@ function LiveData() {
     e.preventDefault();
     console.log('Attempting to add device with data:', newDevice);
     try {
-      const createdKit = await createKit(newDevice);
-      setDevices((prev) => [...prev, createdKit]);
-      setShowAddDevice(false);
-      addToast('Device added successfully!', 'success');
+      // This functionality is not available on this page, so we'll just log it.
+      console.log('Device creation is not implemented on the LiveData page.');
+      addToast('Device creation is not available here.', 'info');
     } catch (err) {
       console.error('Failed to add device:', err);
       addToast('Failed to add device.', 'error');
@@ -47,18 +47,29 @@ function LiveData() {
   };
 
   useEffect(() => {
-    const fetchDevices = async () => {
+    const fetchDevicesAndData = async () => {
       try {
-        const data = await getDevicesSummary();
-        setDevices(data);
+        const kits = await getAllKits();
+        const devicesWithLiveData = await Promise.all(
+          kits.map(async (kit: any) => {
+            try {
+              const liveData = await getLatestSensorData(kit.kit_id);
+              return { ...kit, latest_reading: liveData };
+            } catch (error) {
+              console.error(`Failed to fetch live data for kit ${kit.kit_id}`, error);
+              return { ...kit, latest_reading: null };
+            }
+          })
+        );
+        setDevices(devicesWithLiveData);
       } catch (err) {
-        setError('Failed to fetch devices');
+        setError('Failed to fetch devices or live data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDevices();
+    fetchDevicesAndData();
   }, []);
 
   return (

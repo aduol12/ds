@@ -19,23 +19,24 @@ function DeviceCard({ device }: DeviceCardProps) {
     { day: 'saturday', enabled: false, times: ['06:00'] },
     { day: 'sunday', enabled: false, times: ['06:00'] }
   ]);
+  const latestReading = device.latest_reading;
 
   const getStatus = (device: DeviceSummary) => {
-    if (!device.kit_is_active) return { text: 'Offline', color: 'bg-red-100 text-red-800 border-red-200' };
+    if (!device.is_active) return { text: 'Offline', color: 'bg-red-100 text-red-800 border-red-200' };
     // TODO: Add logic for maintenance status
     return { text: 'Active', color: 'bg-green-100 text-green-800 border-green-200' };
   };
 
   const status = getStatus(device);
 
-  const getBatteryColor = (level: number | null) => {
-    if (level === null) return 'text-gray-400';
+  const getBatteryColor = (level: number | null | undefined) => {
+    if (level === null || level === undefined) return 'text-gray-400';
     if (level > 50) return 'text-green-600';
     if (level > 20) return 'text-yellow-600';
     return 'text-red-600';
   };
 
-  const getSignalBars = (strength: number | null) => {
+  const getSignalBars = (strength: number | null | undefined) => {
     const level = strength ? Math.round(strength / 20) : 0;
     return Array.from({ length: 5 }, (_, i) => (
       <div
@@ -53,8 +54,8 @@ function DeviceCard({ device }: DeviceCardProps) {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">{device.kit_location_name}</h3>
-          <p className="text-sm text-gray-600">{device.kit_crop_type}</p>
+          <h3 className="text-lg font-semibold text-gray-900">{device.location_name}</h3>
+          <p className="text-sm text-gray-600">{device.crop_type}</p>
         </div>
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${status.color}`}>
           {status.text}
@@ -64,24 +65,24 @@ function DeviceCard({ device }: DeviceCardProps) {
       {/* Status Indicators */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="flex items-center space-x-2">
-          <svg className={`h-5 w-5 ${getBatteryColor(device.battery)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`h-5 w-5 ${getBatteryColor(latestReading?.battery)}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           <div>
             <p className="text-sm text-gray-600">Battery</p>
-            <p className={`font-medium ${getBatteryColor(device.battery)}`}>
-              {device.battery ?? 'N/A'}%
+            <p className={`font-medium ${getBatteryColor(latestReading?.battery)}`}>
+              {latestReading?.battery ?? 'N/A'}%
             </p>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
           <div className="flex items-end space-x-0.5 h-5">
-            {getSignalBars(device.signal)}
+            {getSignalBars(latestReading?.signal)}
           </div>
           <div>
             <p className="text-sm text-gray-600">Signal</p>
-            <p className="font-medium text-gray-900">{device.signal ? `${Math.round(device.signal / 20)}/5` : 'N/A'}</p>
+            <p className="font-medium text-gray-900">{latestReading?.signal ? `${Math.round(latestReading.signal / 20)}/5` : 'N/A'}</p>
           </div>
         </div>
       </div>
@@ -90,34 +91,34 @@ function DeviceCard({ device }: DeviceCardProps) {
       <div className="space-y-2 mb-4">
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Kit ID:</span>
-          <span className="font-medium">{device.kit_kit_id}</span>
+          <span className="font-medium">{device.kit_id}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Crop Type:</span>
-          <span className="font-medium">{device.kit_crop_type}</span>
+          <span className="font-medium">{device.crop_type}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Firmware:</span>
-          <span className="font-medium">{device.firmware ?? 'N/A'}</span>
+          <span className="font-medium">{latestReading?.firmware ?? 'N/A'}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Last Seen:</span>
-          <span className="font-medium">{device.timestamp ? new Date(device.timestamp).toLocaleString() : 'N/A'}</span>
+          <span className="font-medium">{latestReading?.timestamp ? new Date(latestReading.timestamp).toLocaleString() : 'N/A'}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Latitude:</span>
-          <span className="font-medium">{device.kit_latitude}</span>
+          <span className="font-medium">{device.latitude}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Longitude:</span>
-          <span className="font-medium">{device.kit_longitude}</span>
+          <span className="font-medium">{device.longitude}</span>
         </div>
       </div>
 
       {/* Action Buttons */}
       <div className="flex space-x-2 pt-4 border-t border-gray-200">
         <Link 
-          to={`/device/${device.kit_kit_id}`}
+          to={`/device/${device.kit_id}`}
           className="flex-1 text-sm text-blue-600 hover:text-blue-700 font-medium py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center group relative"
           title="View Device Details"
         >

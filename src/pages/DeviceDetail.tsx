@@ -25,13 +25,20 @@ function DeviceDetail() {
       if (!id) return;
       try {
         setLoading(true);
-        const [kitData, sensorData] = await Promise.all([
-          getKitById(id),
-          getLatestSensorData(id),
-        ]);
+        const kitData = await getKitById(id);
         setDevice(kitData);
-        setSensorData(sensorData);
         setIrrigationActive(kitData.is_irrigating);
+
+        try {
+          const sensorData = await getLatestSensorData(id);
+          setSensorData(sensorData);
+        } catch (err: any) {
+          if (err.response && err.response.status === 404) {
+            setSensorData(null);
+          } else {
+            setError('Failed to fetch sensor data');
+          }
+        }
       } catch (err) {
         setError('Failed to fetch device details');
       } finally {
@@ -152,9 +159,9 @@ function DeviceDetail() {
             <div className="flex space-x-3">
               <button
                 onClick={() => handleIrrigationToggle('start')}
-                disabled={irrigationActive}
+                disabled={irrigationActive || !sensorData}
                 className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
-                  irrigationActive
+                  irrigationActive || !sensorData
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}

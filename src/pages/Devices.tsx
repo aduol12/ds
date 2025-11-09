@@ -3,7 +3,8 @@ import Layout from '../components/Layout';
 import DeviceCard from '../components/DeviceCard';
 import NoDevices from '../components/NoDevices';
 import Loader from '../components/Loader';
-import { getDevicesSummary, createKit } from '../api/assets';
+import { getAllKits, createKit } from '../api/assets';
+import { getLatestSensorData } from '../api/data';
 import { DeviceSummary } from '../types/api';
 import { useToasts } from '../hooks/useToasts';
 
@@ -50,31 +51,39 @@ function Devices() {
 
 
   useEffect(() => {
-    const fetchDevices = async () => {
-      console.log('Fetching devices...');
+    const fetchDevicesAndData = async () => {
       try {
-        const data = await getDevicesSummary();
-        console.log('Devices data fetched:', data);
-        setDevices(data);
+        const kits = await getAllKits();
+        const devicesWithLiveData = await Promise.all(
+          kits.map(async (kit: any) => {
+            try {
+              const liveData = await getLatestSensorData(kit.kit_id);
+              return { ...kit, latest_reading: liveData };
+            } catch (error) {
+              console.error(`Failed to fetch live data for kit ${kit.kit_id}`, error);
+              return { ...kit, latest_reading: null };
+            }
+          })
+        );
+        setDevices(devicesWithLiveData);
       } catch (err) {
-        console.error('Failed to fetch devices:', err);
-        setError('Failed to fetch devices');
+        setError('Failed to fetch devices or live data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDevices();
+    fetchDevicesAndData();
   }, []);
-  const activeDevices = devices.filter((device) => device.kit_is_active).length;
-  const offlineDevices = devices.filter((device) => !device.kit_is_active).length;
+  const activeDevices = devices.filter((device) => device.is_active).length;
+  const offlineDevices = devices.filter((device) => !device.is_active).length;
   // TODO: Add maintenance status
   const maintenanceDevices = 0;
   const avgBattery =
     devices.length > 0
       ? Math.round(
           devices.reduce((acc, device) => {
-            return acc + (device.battery ?? 0);
+            return acc + (device.latest_reading?.battery ?? 0);
           }, 0) / devices.length
         )
       : 0;

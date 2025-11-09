@@ -121,7 +121,11 @@ function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Farm Dashboard</h1>
-            <p className="text-gray-600">Real-time monitoring of Petoskey Farm irrigation systems</p>
+                        <p className="text-gray-600">
+              {user?.farmProfile?.farm_name 
+                ? `Real-time monitoring of ${user.farmProfile.farm_name} irrigation systems` 
+                : 'Real-time monitoring of your farm’s irrigation systems'}
+            </p>
           </div>
           <div className="flex items-center space-x-3">
             <select 
