@@ -9,7 +9,7 @@ import EditProfile from "./pages/EditProfile";
 import Subscription from "./pages/Subscription";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import DeviceHistory from './pages/DeviceHistory';
+import Analytics from './pages/Analytics';
 import DeviceDetail from './pages/DeviceDetail';
 import { ToastsContainer } from './components/Toast';
 import { useToasts } from './hooks/useToasts';
@@ -31,7 +31,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/devices" element={<Devices />} />
           <Route path="/device/:id" element={<DeviceDetail />} />
-          <Route path="/device/:deviceId/history" element={<DeviceHistory />} />
+          <Route path="/device/:deviceId/analytics" element={<Analytics />} />
           <Route path="/live-data" element={<LiveData />} />
           <Route path="/action-plans" element={<ActionPlans />} />
           

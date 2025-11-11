@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Loader from '../components/Loader';
-import { getDashboardSummary } from '../api/data';
+import { getAllKits } from '../api/assets';
+import { getLatestSensorData } from '../api/data';
 import { getAllAlerts } from '../api/alerts';
 import { getWeatherData } from '../api/weather';
 import { getUserProfile } from '../api/users';
@@ -22,7 +23,18 @@ function Dashboard() {
       try {
         setLoading(true);
         console.log('Fetching data...');
-        const summaryData = await getDashboardSummary();
+        const kits = await getAllKits();
+        const summaryData = await Promise.all(
+          kits.map(async (kit: any) => {
+            try {
+              const liveData = await getLatestSensorData(kit.kit_id);
+              return { ...kit, latest_reading: liveData };
+            } catch (error) {
+              console.error(`Failed to fetch live data for kit ${kit.kit_id}`, error);
+              return { ...kit, latest_reading: null };
+            }
+          })
+        );
         console.log('Summary data:', summaryData);
         const alertsData = await getAllAlerts();
         console.log('Alerts data:', alertsData);
@@ -90,7 +102,7 @@ function Dashboard() {
     temp: d.latest_reading?.temperature || 0,
     ph: d.latest_reading?.ph || 0,
     status: d.latest_reading ? 'optimal' : 'offline', // Simplified status
-    time: d.latest_reading ? new Date(d.latest_reading.timestamp).toLocaleTimeString() : 'N/A',
+    time: d.latest_reading ? new Date(d.latest_reading.timestamp).toLocaleTimeString(undefined, { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) : 'N/A',
     irrigating: d.is_irrigating,
   })) || [];
 
@@ -392,7 +404,7 @@ function Dashboard() {
                             </span>
                           </div>
                           <p className="text-sm text-gray-700 mb-1 break-words">{alert.description}</p>
-                          <p className="text-xs text-gray-500">{new Date(alert.timestamp).toLocaleString()}</p>
+                          <p className="text-xs text-gray-500">{new Date(alert.timestamp).toLocaleString(undefined, { timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}</p>
                         </div>
                       </div>
                       

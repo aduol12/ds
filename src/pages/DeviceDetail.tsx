@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { getKitById } from '../api/assets';
-import { getLatestSensorData } from '../api/data';
+import { getLatestSensorData, getHistoricalSensorData } from '../api/data';
 import { Kit, SensorReading } from '../types/api';
 import Loader from '../components/Loader';
 
@@ -19,6 +19,69 @@ function DeviceDetail() {
   const [irrigationActive, setIrrigationActive] = useState(false);
   const [showIrrigationModal, setShowIrrigationModal] = useState(false);
   const [irrigationAction, setIrrigationAction] = useState<'start' | 'stop'>('start');
+  const [historicalData, setHistoricalData] = useState<SensorReading[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyTimeRange, setHistoryTimeRange] = useState('24h');
+
+  useEffect(() => {
+    const fetchHistoricalData = async () => {
+      if (activeTab === 'history' && id) {
+        setHistoryLoading(true);
+        try {
+          let from = '';
+          let to = '';
+
+          if (historyTimeRange === 'custom') {
+            if (dateRange.start && dateRange.end) {
+              const startDate = new Date(dateRange.start);
+              startDate.setUTCHours(0, 0, 0, 0);
+              from = startDate.toISOString();
+
+              const endDate = new Date(dateRange.end);
+              endDate.setUTCHours(23, 59, 59, 999);
+              to = endDate.toISOString();
+            } else {
+              // Don't fetch if custom range is not complete, and clear previous data
+              setHistoricalData([]);
+              setHistoryLoading(false);
+              return;
+            }
+          } else {
+            const now = new Date();
+            let fromDate = new Date();
+            switch (historyTimeRange) {
+              case '24h':
+                fromDate.setDate(now.getDate() - 1);
+                break;
+              case '7d':
+                fromDate.setDate(now.getDate() - 7);
+                break;
+              case '30d':
+                fromDate.setDate(now.getDate() - 30);
+                break;
+              default:
+                fromDate.setDate(now.getDate() - 1);
+            }
+            from = fromDate.toISOString();
+            to = now.toISOString();
+          }
+          
+          const data = await getHistoricalSensorData(id, from, to);
+          if (Array.isArray(data)) {
+            data.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          }
+          setHistoricalData(data);
+        } catch (err) {
+          console.error("Failed to fetch historical data", err);
+          setHistoricalData([]); // Set to empty array on error to show "no data" message
+        } finally {
+          setHistoryLoading(false);
+        }
+      }
+    };
+
+    fetchHistoricalData();
+  }, [activeTab, id, historyTimeRange, dateRange]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -103,18 +166,18 @@ function DeviceDetail() {
     <Layout>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
             <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
               <Link to="/live-data" className="hover:text-green-600">Live Data</Link>
               <span>›</span>
-              <span className="text-gray-900">{device.location_name}</span>
+              <span className="text-gray-900 truncate">{device.location_name}</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">{device.location_name}</h1>
-            <p className="text-gray-600">{device.crop_type}</p>
+            <h1 className="text-2xl font-bold text-gray-900 truncate">{device.location_name}</h1>
+            <p className="text-gray-600 truncate">{device.crop_type}</p>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-3">
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
               device.is_active
                 ? 'bg-green-100 text-green-800 border border-green-200' 
@@ -193,7 +256,7 @@ function DeviceDetail() {
 
         {/* Tab Navigation */}
         <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+          <nav className="flex flex-col sm:flex-row sm:space-x-8">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -273,10 +336,6 @@ function DeviceDetail() {
                   <span className="font-medium">{device.crop_type}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Install Date:</span>
-                  <span className="font-medium">{new Date(device.created_at).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Firmware:</span>
                   <span className="font-medium">{sensorData?.firmware ?? 'N/A'}</span>
                 </div>
@@ -313,13 +372,37 @@ function DeviceDetail() {
                   <h2 className="text-lg font-semibold text-gray-900">Historical Data</h2>
                   <p className="text-sm text-gray-600">View sensor readings over time</p>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    <option>Last 24 hours</option>
-                    <option>Last 7 days</option>
-                    <option>Last 30 days</option>
-                    <option>Custom range</option>
+                <div className="flex flex-wrap items-center gap-4">
+                  <Link to={`/device/${id}/analytics`} className="text-sm font-medium text-green-600 hover:text-green-700">
+                    Go to Analytics Page
+                  </Link>
+                  <select 
+                    value={historyTimeRange}
+                    onChange={(e) => setHistoryTimeRange(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="24h">Last 24 hours</option>
+                    <option value="7d">Last 7 days</option>
+                    <option value="30d">Last 30 days</option>
+                    <option value="custom">Custom range</option>
                   </select>
+                  {historyTimeRange === 'custom' && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={dateRange.start}
+                        onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      />
+                      <span>to</span>
+                      <input
+                        type="date"
+                        value={dateRange.end}
+                        onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      />
+                    </div>
+                  )}
                   <button 
                     onClick={() => setShowReportModal(true)}
                     className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700"
@@ -330,91 +413,54 @@ function DeviceDetail() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Moisture (%)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Temp (°C)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">pH</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EC</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N-P-K</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Irrigation</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {mockHistoricalData.map((reading) => (
-                    <tr key={reading.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.timestamp}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{reading.moisture}%</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.temperature}°C</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.ph}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.ec}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {reading.nitrogen}-{reading.phosphorus}-{reading.potassium}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          reading.irrigationActive 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {reading.irrigationActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
+            {historyLoading ? (
+              <div className="p-6 text-center">
+                <Loader />
+              </div>
+            ) : historicalData && historicalData.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Moisture (%)</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Temp (°C)</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">pH</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EC</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N-P-K</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {historicalData.map((reading) => (
+                      <tr key={reading.timestamp} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(reading.timestamp).toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{reading.moisture}%</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.temperature}°C</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.ph}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reading.ec}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {reading.nitrogen}-{reading.phosphorus}-{reading.potassium}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-6 text-center">
+                <p>No historical data available for the selected time range.</p>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'reports' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Generated Reports</h2>
-                  <p className="text-sm text-gray-600">Download and view device reports</p>
-                </div>
-                <button 
-                  onClick={() => setShowReportModal(true)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700"
-                >
-                  Generate New Report
-                </button>
-              </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+            <div className="flex justify-center mb-4">
+              <svg className="h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             </div>
-
-            <div className="p-6">
-              <div className="grid gap-4">
-                {mockReports.map((report) => (
-                  <div key={report.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
-                    <div className="flex items-center space-x-4">
-                      <span className="text-2xl">{getReportTypeIcon(report.type)}</span>
-                      <div>
-                        <h3 className="font-medium text-gray-900">{report.title}</h3>
-                        <p className="text-sm text-gray-600">Generated on {report.date}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {report.status}
-                      </span>
-                      <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                        Download
-                      </button>
-                      <button className="text-gray-600 hover:text-gray-700 text-sm font-medium">
-                        View
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <h2 className="text-xl font-semibold text-gray-900">Reports Feature Coming Soon</h2>
+            <p className="text-sm text-gray-600 mt-2">We're working hard to bring you detailed reports and analytics. Stay tuned!</p>
           </div>
         )}
 

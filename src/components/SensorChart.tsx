@@ -1,3 +1,6 @@
+import React, { useState, useRef, useLayoutEffect } from 'react';
+
+// --- INTERFACES ---
 interface DataPoint {
   timestamp: string;
   value: number;
@@ -12,7 +15,7 @@ interface Metric {
   icon: string;
 }
 
-interface SensorChartProps {
+export interface SensorChartProps {
   data: DataPoint[];
   color?: string;
   unit?: string;
@@ -21,21 +24,91 @@ interface SensorChartProps {
   combined?: boolean;
 }
 
-function SensorChart({ data, color, unit, timeRange, metrics, combined = false }: SensorChartProps) {
+// --- TYPE FOR INTERNAL CHART ---
+type ChartContentProps = SensorChartProps & {
+  chartWidth: number;
+};
+
+// --- RESPONSIVE WRAPPER COMPONENT ---
+function SensorChart(props: SensorChartProps) {
+  const { data, combined } = props;
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [chartWidth, setChartWidth] = useState(0);
+
+  // This hook measures the width of the parent div
+  useLayoutEffect(() => {
+    if (!wrapperRef.current) return;
+    
+    // Use ResizeObserver to detect width changes
+    const resizeObserver = new ResizeObserver(entries => {
+      if (entries[0]) {
+        setChartWidth(entries[0].contentRect.width);
+      }
+    });
+
+    resizeObserver.observe(wrapperRef.current);
+    
+    // Clean up observer on unmount
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  // Set a min-height to prevent layout shift while measuring
+  const minHeight = combined ? '300px' : '200px';
+
+  // Handle the "No data" case
   if (!data || data.length === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-gray-500">
+      <div
+        className="w-full flex items-center justify-center text-gray-500"
+        style={{ height: minHeight }}
+      >
         No data available
       </div>
     );
   }
 
+  // Render the wrapper. ChartContent will only render
+  // once we have a measured width (chartWidth > 0).
+  return (
+    <div className="w-full" ref={wrapperRef} style={{ minHeight }}>
+      {chartWidth > 0 && (
+        <ChartContent {...props} chartWidth={chartWidth} />
+      )}
+    </div>
+  );
+}
+
+// --- CHART RENDERING LOGIC ---
+// This is your original component, but it now receives
+// chartWidth as a prop instead of hard-coding it.
+function ChartContent({ 
+  data, 
+  color, 
+  unit, 
+  timeRange, 
+  metrics, 
+  combined = false, 
+  chartWidth 
+}: ChartContentProps) {
+
   // Calculate chart dimensions and scales
-  const chartWidth = 800;
   const chartHeight = combined ? 300 : 200;
-  const padding = { top: 20, right: 20, bottom: 40, left: 60 };
+  // Slightly smaller left padding for mobile
+  const padding = { top: 20, right: 20, bottom: 40, left: 50 }; 
   const innerWidth = chartWidth - padding.left - padding.right;
   const innerHeight = chartHeight - padding.top - padding.bottom;
+
+  // Fallback if container is too small
+  if (innerWidth <= 0) {
+    return (
+      <div 
+        className="flex items-center justify-center text-gray-500"
+        style={{ height: chartHeight }}
+      >
+        Container too small
+      </div>
+    );
+  }
 
   if (combined && metrics) {
     // Combined chart logic
@@ -46,157 +119,139 @@ function SensorChart({ data, color, unit, timeRange, metrics, combined = false }
         const min = Math.min(...values);
         const max = Math.max(...values);
         const range = max - min;
-        // Normalize to 0-100 scale for better visualization
         normalized[`${metric.key}_normalized`] = range > 0 ? ((point[metric.key] - min) / range) * 100 : 50;
       });
       return normalized;
     });
 
-    // Scale functions for combined chart
     const xScale = (index: number) => (index / (data.length - 1)) * innerWidth;
     const yScale = (value: number) => innerHeight - (value / 100) * innerHeight;
 
-    // Format timestamp based on time range
     const formatTimestamp = (timestamp: string) => {
       const date = new Date(timestamp);
-      
       if (timeRange === '1h' || timeRange === '3h' || timeRange === '6h' || timeRange === '12h' || timeRange === '24h' || timeRange === 'today') {
-        return date.toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: false 
-        });
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
       } else {
-        return date.toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric' 
-        });
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       }
     };
 
-    // Calculate tick positions for x-axis
     const getXAxisTicks = () => {
-      const maxTicks = 8;
+      // **RESPONSIVE CHANGE**
+      // Calculate ticks based on available width (e.g., ~80px per tick)
+      const maxTicks = Math.max(2, Math.floor(innerWidth / 80));
       const step = Math.max(1, Math.floor(data.length / maxTicks));
       const ticks = [];
-      
       for (let i = 0; i < data.length; i += step) {
         ticks.push(i);
       }
-      
-      if (ticks[ticks.length - 1] !== data.length - 1) {
+      if (ticks.length > 0 && ticks[ticks.length - 1] !== data.length - 1) {
         ticks.push(data.length - 1);
       }
-      
       return ticks;
     };
 
     const xTicks = getXAxisTicks();
 
     return (
-      <div className="w-full">
-        <div className="overflow-x-auto">
-          <svg width={chartWidth} height={chartHeight} className="min-w-full">
-            <defs>
-              {metrics.map(metric => (
-                <linearGradient key={metric.key} id={`gradient-${metric.key}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" style={{ stopColor: metric.color, stopOpacity: 0.2 }} />
-                  <stop offset="100%" style={{ stopColor: metric.color, stopOpacity: 0.02 }} />
-                </linearGradient>
-              ))}
-            </defs>
-            
-            <g transform={`translate(${padding.left}, ${padding.top})`}>
-              {/* Grid lines */}
-              {[0, 25, 50, 75, 100].map((tick) => (
-                <g key={tick}>
-                  <line
-                    x1={0}
-                    y1={yScale(tick)}
-                    x2={innerWidth}
-                    y2={yScale(tick)}
-                    stroke="#f3f4f6"
-                    strokeWidth={1}
-                  />
-                  <text
-                    x={-10}
-                    y={yScale(tick)}
-                    textAnchor="end"
-                    dominantBaseline="middle"
-                    className="text-xs fill-gray-400"
-                  >
-                    {tick}%
-                  </text>
-                </g>
-              ))}
-              
-              {/* Draw lines for each metric */}
-              {metrics.map(metric => {
-                const pathData = normalizedData.map((point, index) => {
-                  const x = xScale(index);
-                  const y = yScale(point[`${metric.key}_normalized`]);
-                  return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-                }).join(' ');
-
-                const areaPath = `${pathData} L ${xScale(normalizedData.length - 1)} ${innerHeight} L ${xScale(0)} ${innerHeight} Z`;
-
-                return (
-                  <g key={metric.key}>
-                    {/* Area fill */}
-                    <path
-                      d={areaPath}
-                      fill={`url(#gradient-${metric.key})`}
-                    />
-                    
-                    {/* Main line */}
-                    <path
-                      d={pathData}
-                      fill="none"
-                      stroke={metric.color}
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    
-                    {/* Data points */}
-                    {normalizedData.map((point, index) => (
-                      <circle
-                        key={`${metric.key}-${index}`}
-                        cx={xScale(index)}
-                        cy={yScale(point[`${metric.key}_normalized`])}
-                        r={2}
-                        fill={metric.color}
-                        className="hover:r-4 transition-all cursor-pointer"
-                      >
-                        <title>{`${metric.label}: ${point[metric.key]}${metric.unit} at ${formatTimestamp(point.timestamp)}`}</title>
-                      </circle>
-                    ))}
-                  </g>
-                );
-              })}
-              
-              {/* Axes */}
-              <line x1={0} y1={0} x2={0} y2={innerHeight} stroke="#d1d5db" strokeWidth={1} />
-              <line x1={0} y1={innerHeight} x2={innerWidth} y2={innerHeight} stroke="#d1d5db" strokeWidth={1} />
-              
-              {/* X-axis labels */}
-              {xTicks.map((tickIndex) => (
+      <>
+        {/* **RESPONSIVE CHANGE**: Removed overflow-x-auto wrapper */}
+        {/* **RESPONSIVE CHANGE**: Removed min-w-full, width is now dynamic */}
+        <svg width={chartWidth} height={chartHeight}>
+          <defs>
+            {metrics.map(metric => (
+              <linearGradient key={metric.key} id={`gradient-${metric.key}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style={{ stopColor: metric.color, stopOpacity: 0.2 }} />
+                <stop offset="100%" style={{ stopColor: metric.color, stopOpacity: 0.02 }} />
+              </linearGradient>
+            ))}
+          </defs>
+          
+          <g transform={`translate(${padding.left}, ${padding.top})`}>
+            {/* Grid lines */}
+            {[0, 25, 50, 75, 100].map((tick) => (
+              <g key={tick}>
+                <line
+                  x1={0}
+                  y1={yScale(tick)}
+                  x2={innerWidth}
+                  y2={yScale(tick)}
+                  stroke="#f3f4f6"
+                  strokeWidth={1}
+                />
                 <text
-                  key={tickIndex}
-                  x={xScale(tickIndex)}
-                  y={innerHeight + 20}
-                  textAnchor="middle"
+                  x={-10}
+                  y={yScale(tick)}
+                  textAnchor="end"
                   dominantBaseline="middle"
-                  className="text-xs fill-gray-600"
+                  className="text-xs fill-gray-400"
                 >
-                  {formatTimestamp(data[tickIndex].timestamp)}
+                  {tick}%
                 </text>
-              ))}
-            </g>
-          </svg>
-        </div>
+              </g>
+            ))}
+            
+            {/* Draw lines for each metric */}
+            {metrics.map(metric => {
+              const pathData = normalizedData.map((point, index) => {
+                const x = xScale(index);
+                const y = yScale(point[`${metric.key}_normalized`]);
+                return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+              }).join(' ');
+
+              const areaPath = `${pathData} L ${xScale(normalizedData.length - 1)} ${innerHeight} L ${xScale(0)} ${innerHeight} Z`;
+
+              return (
+                <g key={metric.key}>
+                  <path
+                    d={areaPath}
+                    fill={`url(#gradient-${metric.key})`}
+                  />
+                  <path
+                    d={pathData}
+                    fill="none"
+                    stroke={metric.color}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {normalizedData.map((point, index) => (
+                    <circle
+                      key={`${metric.key}-${index}`}
+                      cx={xScale(index)}
+                      cy={yScale(point[`${metric.key}_normalized`])}
+                      r={2}
+                      fill={metric.color}
+                      className="hover:r-4 transition-all cursor-pointer"
+                    >
+                      <title>{`${metric.label}: ${point[metric.key]}${metric.unit} at ${formatTimestamp(point.timestamp)}`}</title>
+                    </circle>
+                  ))}
+                </g>
+              );
+            })}
+            
+            {/* Axes */}
+            <line x1={0} y1={0} x2={0} y2={innerHeight} stroke="#d1d5db" strokeWidth={1} />
+            <line x1={0} y1={innerHeight} x2={innerWidth} y2={innerHeight} stroke="#d1d5db" strokeWidth={1} />
+            
+            {/* X-axis labels */}
+            {xTicks.map((tickIndex) => (
+              <text
+                key={tickIndex}
+                x={xScale(tickIndex)}
+                y={innerHeight + 20}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                className="text-xs fill-gray-600"
+              >
+                {formatTimestamp(data[tickIndex].timestamp)}
+              </text>
+            ))}
+          </g>
+        </svg>
         
-        {/* Combined chart statistics */}
+        {/* Combined chart statistics (this was already responsive) */}
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           {metrics.map(metric => {
             const values = data.map(d => d[metric.key]).filter(v => v !== undefined);
@@ -235,11 +290,11 @@ function SensorChart({ data, color, unit, timeRange, metrics, combined = false }
             );
           })}
         </div>
-      </div>
+      </>
     );
   }
 
-  // Single metric chart logic (existing code)
+  // Single metric chart logic
   const values = data.map(d => d.value);
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
@@ -260,34 +315,24 @@ function SensorChart({ data, color, unit, timeRange, metrics, combined = false }
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
-    
     if (timeRange === '1h' || timeRange === '3h' || timeRange === '6h' || timeRange === '12h' || timeRange === '24h' || timeRange === 'today') {
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-      });
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
     } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
   };
 
   const getXAxisTicks = () => {
-    const maxTicks = 6;
+    // **RESPONSIVE CHANGE**
+    const maxTicks = Math.max(2, Math.floor(innerWidth / 80));
     const step = Math.max(1, Math.floor(data.length / maxTicks));
     const ticks = [];
-    
     for (let i = 0; i < data.length; i += step) {
       ticks.push(i);
     }
-    
-    if (ticks[ticks.length - 1] !== data.length - 1) {
+    if (ticks.length > 0 && ticks[ticks.length - 1] !== data.length - 1) {
       ticks.push(data.length - 1);
     }
-    
     return ticks;
   };
 
@@ -297,11 +342,9 @@ function SensorChart({ data, color, unit, timeRange, metrics, combined = false }
     const adjustedMin = minValue - yPadding;
     const adjustedMax = maxValue + yPadding;
     const step = (adjustedMax - adjustedMin) / (tickCount - 1);
-    
     for (let i = 0; i < tickCount; i++) {
       ticks.push(adjustedMin + step * i);
     }
-    
     return ticks;
   };
 
@@ -309,118 +352,115 @@ function SensorChart({ data, color, unit, timeRange, metrics, combined = false }
   const yTicks = getYAxisTicks();
 
   return (
-    <div className="w-full">
-      <div className="overflow-x-auto">
-        <svg width={chartWidth} height={chartHeight} className="min-w-full">
-          <defs>
-            <linearGradient id={`gradient-${color?.replace('#', '')}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style={{ stopColor: color, stopOpacity: 0.3 }} />
-              <stop offset="100%" style={{ stopColor: color, stopOpacity: 0.05 }} />
-            </linearGradient>
-          </defs>
+    <>
+      <svg width={chartWidth} height={chartHeight}>
+        <defs>
+          <linearGradient id={`gradient-${color?.replace('#', '')}`} x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style={{ stopColor: color, stopOpacity: 0.3 }} />
+            <stop offset="100%" style={{ stopColor: color, stopOpacity: 0.05 }} />
+          </linearGradient>
+        </defs>
+        
+        <g transform={`translate(${padding.left}, ${padding.top})`}>
+          {/* Grid lines */}
+          {yTicks.map((tick, index) => (
+            <g key={index}>
+              <line
+                x1={0}
+                y1={yScale(tick)}
+                x2={innerWidth}
+                y2={yScale(tick)}
+                stroke="#f3f4f6"
+                strokeWidth={1}
+              />
+            </g>
+          ))}
           
-          <g transform={`translate(${padding.left}, ${padding.top})`}>
-            {/* Grid lines */}
-            {yTicks.map((tick, index) => (
-              <g key={index}>
-                <line
-                  x1={0}
-                  y1={yScale(tick)}
-                  x2={innerWidth}
-                  y2={yScale(tick)}
-                  stroke="#f3f4f6"
-                  strokeWidth={1}
-                />
-              </g>
-            ))}
-            
-            {/* Area fill */}
-            <path
-              d={areaPath}
-              fill={`url(#gradient-${color?.replace('#', '')})`}
-            />
-            
-            {/* Main line */}
-            <path
-              d={pathData}
-              fill="none"
-              stroke={color}
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            
-            {/* Data points */}
-            {data.map((point, index) => (
-              <circle
-                key={index}
-                cx={xScale(index)}
-                cy={yScale(point.value)}
-                r={3}
-                fill={color}
-                className="hover:r-4 transition-all cursor-pointer"
-              >
-                <title>{`${formatTimestamp(point.timestamp)}: ${point.value}${unit}`}</title>
-              </circle>
-            ))}
-            
-            {/* Axes */}
-            <line x1={0} y1={0} x2={0} y2={innerHeight} stroke="#d1d5db" strokeWidth={1} />
-            <line x1={0} y1={innerHeight} x2={innerWidth} y2={innerHeight} stroke="#d1d5db" strokeWidth={1} />
-            
-            {/* Y-axis labels */}
-            {yTicks.map((tick, index) => (
-              <text
-                key={index}
-                x={-10}
-                y={yScale(tick)}
-                textAnchor="end"
-                dominantBaseline="middle"
-                className="text-xs fill-gray-600"
-              >
-                {tick.toFixed(1)}
-              </text>
-            ))}
-            
-            {/* X-axis labels */}
-            {xTicks.map((tickIndex) => (
-              <text
-                key={tickIndex}
-                x={xScale(tickIndex)}
-                y={innerHeight + 20}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                className="text-xs fill-gray-600"
-              >
-                {formatTimestamp(data[tickIndex].timestamp)}
-              </text>
-            ))}
-          </g>
-        </svg>
-      </div>
+          <path
+            d={areaPath}
+            fill={`url(#gradient-${color?.replace('#', '')})`}
+          />
+          
+          <path
+            d={pathData}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          
+          {data.map((point, index) => (
+            <circle
+              key={index}
+              cx={xScale(index)}
+              cy={yScale(point.value)}
+              r={3}
+              fill={color}
+              className="hover:r-4 transition-all cursor-pointer"
+            >
+              <title>{`${formatTimestamp(point.timestamp)}: ${point.value}${unit}`}</title>
+            </circle>
+          ))}
+          
+          {/* Axes */}
+          <line x1={0} y1={0} x2={0} y2={innerHeight} stroke="#d1d5db" strokeWidth={1} />
+          <line x1={0} y1={innerHeight} x2={innerWidth} y2={innerHeight} stroke="#d1d5db" strokeWidth={1} />
+          
+          {/* Y-axis labels */}
+          {yTicks.map((tick, index) => (
+            <text
+              key={index}
+              x={-10}
+              y={yScale(tick)}
+              textAnchor="end"
+              dominantBaseline="middle"
+              className="text-xs fill-gray-600"
+            >
+              {tick.toFixed(1)}
+            </text>
+          ))}
+          
+          {/* X-axis labels */}
+          {xTicks.map((tickIndex) => (
+            <text
+              key={tickIndex}
+              x={xScale(tickIndex)}
+              y={innerHeight + 20}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="text-xs fill-gray-600"
+            >
+              {formatTimestamp(data[tickIndex].timestamp)}
+            </text>
+          ))}
+        </g>
+      </svg>
       
       {/* Single chart statistics */}
-      <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-        <div className="text-center">
+      {/* **RESPONSIVE CHANGE**: Stacks on mobile (grid-cols-1), 3-col on larger (sm:grid-cols-3) */}
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+        {/* **RESPONSIVE CHANGE**: Aligns left on mobile, center on larger */}
+        <div className="text-left sm:text-center">
           <p className="text-gray-600">Current</p>
           <p className="font-semibold" style={{ color }}>
             {data[data.length - 1]?.value.toFixed(2)}{unit}
           </p>
         </div>
-        <div className="text-center">
+        <div className="text-left sm:text-center">
           <p className="text-gray-600">Average</p>
           <p className="font-semibold text-gray-900">
             {(values.reduce((a, b) => a + b, 0) / values.length).toFixed(2)}{unit}
           </p>
         </div>
-        <div className="text-center">
+        <div className="text-left sm:text-center">
           <p className="text-gray-600">Range</p>
           <p className="font-semibold text-gray-900">
             {minValue.toFixed(1)} - {maxValue.toFixed(1)}{unit}
           </p>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

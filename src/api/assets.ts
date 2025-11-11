@@ -11,7 +11,7 @@ export const getAllKits = async () => {
 };
 
 export const getKitById = async (kitId: string) => {
-  const response = await client.get(`/assets/kit/${kitId}`);
+  const response = await client.get(`/api/assets/kit/${kitId}`);
   return response.data;
 };
 

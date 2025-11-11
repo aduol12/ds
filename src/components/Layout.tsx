@@ -57,7 +57,7 @@ function Layout({ children }: LayoutProps) {
         />
         
         <main className={`
-          transition-all duration-300 ease-in-out min-h-screen pt-20
+          transition-all duration-300 ease-in-out min-h-screen pt-24
           ${getMainMargin()}
           px-4 sm:px-6 py-4 sm:py-6
         `}>
