@@ -113,7 +113,7 @@ function SensorReading({ device }: SensorReadingProps) {
           </Link>
 
           <Link
-            to={`/device/${device.kit_id}/history`}
+            to={`/device/${device.kit_id}/analytics`}
             className="text-gray-600 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-50 transition-colors group relative"
             title="View Historical Data"
           >

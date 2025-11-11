@@ -132,7 +132,7 @@ function DeviceCard({ device }: DeviceCardProps) {
         </Link>
         
         <Link 
-          to={`/device/${device.kit_kit_id}/history`}
+          to={`/device/${device.kit_id}/analytics`}
           className="flex-1 text-sm text-gray-600 hover:text-gray-700 font-medium py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center group relative"
           title="View Historical Data"
         >
