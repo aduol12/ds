@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
 import { useToasts } from '../hooks/useToasts';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
 function Login() {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -9,6 +10,7 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { addToast } = useToasts();
+  const { isInstallable, isIOS, handleInstall } = useInstallPrompt();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +40,39 @@ function Login() {
             Intelligent irrigation management for modern farmers
           </p>
         </div>
+
+        {/* Install Prompt */}
+        {isInstallable && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+            <div className="flex items-center space-x-3">
+              <svg className="h-6 w-6 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <div>
+                <h3 className="font-semibold text-green-900">Install DroughtSmart</h3>
+                <p className="text-sm text-green-700">Get quick access from your home screen</p>
+              </div>
+            </div>
+            <button
+              onClick={handleInstall}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition-colors"
+            >
+              Install App
+            </button>
+          </div>
+        )}
+
+        {/* iOS Install Instructions */}
+        {isIOS && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="font-semibold text-blue-900 mb-2">Install on iPhone/iPad</h3>
+            <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+              <li>Tap the share button at the bottom</li>
+              <li>Select "Add to Home Screen"</li>
+              <li>Tap "Add" to confirm</li>
+            </ol>
+          </div>
+        )}
         
         <form className="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-lg" onSubmit={handleSubmit}>
           <div className="space-y-4">

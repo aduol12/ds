@@ -13,7 +13,7 @@ function Sidebar({ collapsed, mobileOpen, onClose }: SidebarProps) {
     { name: 'Dashboard', href: '/', icon: 'M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z' },
     { name: 'Live Data', href: '/live-data', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
     { name: 'Devices', href: '/devices', icon: 'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z' },
-    { name: 'Action Plans', href: '/action-plans', icon: 'M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' }
+    // { name: 'Action Plans', href: '/action-plans', icon: 'M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' }
   ];
 
   const isActive = (href: string) => {
@@ -93,10 +93,10 @@ function Sidebar({ collapsed, mobileOpen, onClose }: SidebarProps) {
               <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-3 mb-3">
                 <div className="flex items-center space-x-2 mb-2">
                   <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs font-medium text-gray-700">System Status</span>
+                  {/* <span className="text-xs font-medium text-gray-700">System Status</span> */}
                 </div>
-                <p className="text-xs text-gray-600">All devices online</p>
-                <p className="text-xs text-gray-500">Last sync: 2 min ago</p>
+                {/* <p className="text-xs text-gray-600">All devices online</p>
+                <p className="text-xs text-gray-500">Last sync: 2 min ago</p> */}
               </div>
             )}
 
@@ -114,7 +114,7 @@ function Sidebar({ collapsed, mobileOpen, onClose }: SidebarProps) {
               </div>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">John Farmer</p>
+                  {/* <p className="text-sm font-medium text-gray-900 truncate">John Farmer</p> */}
                   <p className="text-xs text-gray-500 truncate">Premium Plan</p>
                 </div>
               )}
