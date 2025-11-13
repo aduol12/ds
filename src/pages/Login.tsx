@@ -30,11 +30,7 @@ function Login() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-green-600 rounded-full flex items-center justify-center mb-4">
-            <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-            </svg>
-          </div>
+          <img src="/droughtsmart.png" alt="DroughtSmart Logo" className="mx-auto h-16 w-16 mb-4" />
           <h2 className="text-3xl font-bold text-gray-900">DroughtSmart</h2>
           <p className="mt-2 text-sm text-gray-600">
             Intelligent irrigation management for modern farmers
