@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { getKitById } from '../api/assets';
+import { getKitById, updateKit } from '../api/assets';
 import { getLatestSensorData, getHistoricalSensorData } from '../api/data';
 import { Kit, SensorReading } from '../types/api';
 import Loader from '../components/Loader';
@@ -9,6 +9,10 @@ import Loader from '../components/Loader';
 function DeviceDetail() {
   const { id } = useParams<{ id: string }>();
   const [device, setDevice] = useState<Kit | null>(null);
+  const [editableDevice, setEditableDevice] = useState<Kit | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [sensorData, setSensorData] = useState<SensorReading | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +94,7 @@ function DeviceDetail() {
         setLoading(true);
         const kitData = await getKitById(id);
         setDevice(kitData);
+        setEditableDevice(kitData);
         setIrrigationActive(kitData.is_irrigating);
 
         try {
@@ -111,6 +116,37 @@ function DeviceDetail() {
 
     fetchData();
   }, [id]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (editableDevice) {
+      setEditableDevice({
+        ...editableDevice,
+        [e.target.name]: e.target.value,
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    if (editableDevice && id) {
+      setSaveLoading(true);
+      setSaveError(null);
+      try {
+        const updatedKit = await updateKit(id, editableDevice);
+        setDevice(updatedKit);
+        setEditableDevice(updatedKit);
+        setIsEditing(false);
+      } catch (err) {
+        setSaveError('Failed to save device details');
+      } finally {
+        setSaveLoading(false);
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    setEditableDevice(device);
+    setIsEditing(false);
+  };
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📊' },
@@ -321,45 +357,126 @@ function DeviceDetail() {
 
             {/* Right Column - Device Information */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Device Information</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Kit ID:</span>
-                  <span className="font-medium">{device.kit_id}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Location:</span>
-                  <span className="font-medium">{device.location_name}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Crop Type:</span>
-                  <span className="font-medium">{device.crop_type}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Firmware:</span>
-                  <span className="font-medium">{sensorData?.firmware ?? 'N/A'}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Last Seen:</span>
-                  <span className="font-medium">{sensorData ? new Date(sensorData.timestamp).toLocaleString() : 'N/A'}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Latitude:</span>
-                  <span className="font-medium">{device.latitude}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Longitude:</span>
-                  <span className="font-medium">{device.longitude}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Battery:</span>
-                  <span className="font-medium">{sensorData?.battery ?? 'N/A'}%</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Signal:</span>
-                  <span className="font-medium">{sensorData?.signal ?? 'N/A'}%</span>
-                </div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Device Information</h3>
+                {!isEditing && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="text-sm font-medium text-green-600 hover:text-green-700"
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
+              {isEditing && editableDevice ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Kit ID</label>
+                    <input
+                      type="text"
+                      name="kit_id"
+                      value={editableDevice.kit_id}
+                      disabled
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Location</label>
+                    <input
+                      type="text"
+                      name="location_name"
+                      value={editableDevice.location_name}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Crop Type</label>
+                    <input
+                      type="text"
+                      name="crop_type"
+                      value={editableDevice.crop_type}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Latitude</label>
+                    <input
+                      type="number"
+                      name="latitude"
+                      value={editableDevice.latitude}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Longitude</label>
+                    <input
+                      type="number"
+                      name="longitude"
+                      value={editableDevice.longitude}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      onClick={handleCancel}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      disabled={saveLoading}
+                      className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
+                    >
+                      {saveLoading ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                  {saveError && <p className="text-red-500 text-sm mt-2">{saveError}</p>}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Kit ID:</span>
+                    <span className="font-medium">{device.kit_id}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Location:</span>
+                    <span className="font-medium">{device.location_name}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Crop Type:</span>
+                    <span className="font-medium">{device.crop_type}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Firmware:</span>
+                    <span className="font-medium">{sensorData?.firmware ?? 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Last Seen:</span>
+                    <span className="font-medium">{sensorData ? new Date(sensorData.timestamp).toLocaleString() : 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Latitude:</span>
+                    <span className="font-medium">{device.latitude}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Longitude:</span>
+                    <span className="font-medium">{device.longitude}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Battery:</span>
+                    <span className="font-medium">{sensorData?.battery ?? 'N/A'}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Signal:</span>
+                    <span className="font-medium">{sensorData?.signal ?? 'N/A'}%</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
