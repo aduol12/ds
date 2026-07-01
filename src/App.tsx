@@ -11,6 +11,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Analytics from './pages/Analytics';
 import DeviceDetail from './pages/DeviceDetail';
+import AdminDashboard2 from "./pages/AdminDashboard2";
 import { ToastsContainer } from './components/Toast';
 import { useToasts } from './hooks/useToasts';
 
@@ -29,6 +30,7 @@ function App() {
           {/* Main app routes - Dashboard is now the default */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admindashboard2" element={<AdminDashboard2 />} />
           <Route path="/devices" element={<Devices />} />
           <Route path="/device/:id" element={<DeviceDetail />} />
           <Route path="/device/:deviceId/analytics" element={<Analytics />} />
