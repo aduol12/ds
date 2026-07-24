@@ -3,6 +3,8 @@ import axios, { AxiosInstance } from 'axios';
 const STORAGE_KEY = 'ds_token';
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api';
+console.log('VITE_API_BASE:', import.meta.env.VITE_API_BASE);
+console.log('API_BASE:', API_BASE);
 
 const client: AxiosInstance = axios.create({
   baseURL: API_BASE,
