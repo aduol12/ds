@@ -1,9 +1,15 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import path from "path";
 
 // https://vite.dev/config/
 export default defineConfig({
   clearScreen: false,
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
   plugins: [
     react(),
     {
@@ -43,11 +49,20 @@ export default defineConfig({
       interval: 500,
     },
     proxy: {
+      // Asset/data/iot/alerts routes are mounted under /api/* on the backend.
       '/api': {
         target: 'https://ds-back-production.up.railway.app',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      }
+      },
+      // Auth/user routes are mounted at the root (no /api prefix) on the backend.
+      '/auth': {
+        target: 'https://ds-back-production.up.railway.app',
+        changeOrigin: true,
+      },
+      '/users': {
+        target: 'https://ds-back-production.up.railway.app',
+        changeOrigin: true,
+      },
     }
   },
 });

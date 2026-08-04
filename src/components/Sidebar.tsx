@@ -1,4 +1,6 @@
-import { Link, useLocation } from 'react-router-dom';
+import { NavLink } from "react-router-dom";
+
+import { useAuth, useAuthNavigation } from "@/contexts/AuthContext";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -6,119 +8,263 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+type NavGroup = {
+  label?: string;
+  links: Array<{
+    to: string;
+    label: string;
+    icon: string;
+  }>;
+};
+
+const adminGroups: NavGroup[] = [
+  {
+    label: "Workspace",
+    links: [
+      { to: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
+      { to: "/admin/users", label: "Users", icon: "groups" },
+      { to: "/admin/farmers", label: "Farmers", icon: "diversity_3" },
+      { to: "/admin/farms", label: "Farms", icon: "agriculture" },
+      { to: "/admin/devices", label: "Devices", icon: "router" },
+    ],
+  },
+  {
+    label: "Operations",
+    links: [
+      { to: "/admin/irrigation", label: "Irrigation", icon: "water_drop" },
+      { to: "/admin/monitoring", label: "Monitoring", icon: "monitoring" },
+      { to: "/admin/alerts", label: "Alerts", icon: "notifications_active" },
+      { to: "/admin/field-operations", label: "Field Operations", icon: "construction" },
+      { to: "/admin/reports", label: "Reports", icon: "description" },
+    ],
+  },
+  {
+    label: "Insights",
+    links: [
+      { to: "/admin/analytics", label: "Analytics", icon: "analytics" },
+      { to: "/admin/settings", label: "Settings", icon: "settings" },
+    ],
+  },
+];
+
+const superAdminGroups: NavGroup[] = [
+  {
+    label: "Overview",
+    links: [{ to: "/super-admin/dashboard", label: "Dashboard", icon: "dashboard" }],
+  },
+  {
+    label: "Operations",
+    links: [
+      { to: "/super-admin/users", label: "Users", icon: "groups" },
+      { to: "/super-admin/farms", label: "Farms", icon: "agriculture" },
+      { to: "/super-admin/devices", label: "Devices", icon: "router" },
+      { to: "/super-admin/irrigation", label: "Irrigation", icon: "water_drop" },
+      { to: "/super-admin/monitoring", label: "Monitoring", icon: "monitoring" },
+      { to: "/super-admin/alerts", label: "Alerts", icon: "notifications_active" },
+    ],
+  },
+  {
+    label: "Governance",
+    links: [
+      { to: "/super-admin/organizations", label: "Organizations", icon: "corporate_fare" },
+      { to: "/super-admin/admins", label: "Admins", icon: "admin_panel_settings" },
+      { to: "/super-admin/roles-permissions", label: "Roles & Permissions", icon: "shield" },
+      { to: "/super-admin/audit-logs", label: "Audit Logs", icon: "history" },
+      { to: "/super-admin/system-settings", label: "System Settings", icon: "settings" },
+    ],
+  },
+];
+
+const agronomistGroups: NavGroup[] = [
+  {
+    label: "Workspace",
+    links: [
+      { to: "/agronomist/dashboard", label: "Dashboard", icon: "dashboard" },
+      { to: "/agronomist/farms", label: "Farms", icon: "agriculture" },
+      { to: "/agronomist/monitoring", label: "Monitoring", icon: "monitoring" },
+      { to: "/agronomist/irrigation", label: "Irrigation", icon: "water_drop" },
+      { to: "/agronomist/alerts", label: "Alerts", icon: "notifications_active" },
+    ],
+  },
+  {
+    label: "Reports",
+    links: [
+      { to: "/agronomist/reports", label: "Reports", icon: "description" },
+      { to: "/agronomist/profile", label: "Profile", icon: "person" },
+    ],
+  },
+];
+
+const fieldTechnicianGroups: NavGroup[] = [
+  {
+    label: "Workspace",
+    links: [
+      { to: "/field-technician/dashboard", label: "Dashboard", icon: "dashboard" },
+      { to: "/field-technician/tasks", label: "My Tasks", icon: "task_alt" },
+      { to: "/field-technician/farms", label: "Assigned Farms", icon: "agriculture" },
+      { to: "/field-technician/devices", label: "Devices", icon: "router" },
+      { to: "/field-technician/maintenance", label: "Maintenance", icon: "build" },
+    ],
+  },
+  {
+    label: "Follow-up",
+    links: [
+      { to: "/field-technician/alerts", label: "Alerts", icon: "notifications_active" },
+      { to: "/field-technician/reports", label: "Field Reports", icon: "description" },
+      { to: "/field-technician/profile", label: "Profile", icon: "person" },
+    ],
+  },
+];
+
+const farmerGroups: NavGroup[] = [
+  {
+    label: "Workspace",
+    links: [
+      { to: "/farmer/home", label: "Dashboard", icon: "dashboard" },
+      { to: "/farmer/farm", label: "My Farms", icon: "agriculture" },
+      { to: "/farmer/irrigation", label: "Irrigation", icon: "water_drop" },
+      { to: "/farmer/notifications", label: "Alerts", icon: "notifications_active" },
+      { to: "/farmer/learning", label: "Learning", icon: "school" },
+    ],
+  },
+  {
+    label: "Account",
+    links: [{ to: "/farmer/profile", label: "Profile", icon: "person" }],
+  },
+];
+
+function getGroups(role: string | undefined): NavGroup[] {
+  switch (role) {
+    case "SUPER_ADMIN":
+      return superAdminGroups;
+    case "AGRONOMIST":
+      return agronomistGroups;
+    case "FIELD_TECHNICIAN":
+      return fieldTechnicianGroups;
+    case "FARMER":
+      return farmerGroups;
+    case "ADMIN":
+    default:
+      return adminGroups;
+  }
+}
+
 function Sidebar({ collapsed, mobileOpen, onClose }: SidebarProps) {
-  const location = useLocation();
+  const { user } = useAuth();
+  const { logoutAndRedirect } = useAuthNavigation();
+  const groups = getGroups(user?.role);
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: 'M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z' },
-    { name: 'Live Data', href: '/live-data', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-    { name: 'Devices', href: '/devices', icon: 'M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z' },
-    // { name: 'Action Plans', href: '/action-plans', icon: 'M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' }
-  ];
+  const initials =
+    user?.name
+      ?.split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() ?? "DS";
 
-  const isActive = (href: string) => {
-    if (href === '/') {
-      return location.pathname === '/';
-    }
-    return location.pathname.startsWith(href);
-  };
+  const roleTitle =
+    user?.role === "SUPER_ADMIN"
+      ? "Enterprise Admin"
+      : user?.role === "AGRONOMIST"
+        ? "Agronomy Workspace"
+        : user?.role === "FIELD_TECHNICIAN"
+          ? "Field Ops"
+          : user?.role === "FARMER"
+            ? "Farmer Dashboard"
+            : "Climate-Smart Admin";
 
   return (
     <>
-      {/* Mobile backdrop - only shows on mobile when menu is open */}
       {mobileOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={onClose}
         />
       )}
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed top-0 left-0 h-full bg-white border-r border-gray-200 
-        transition-all duration-300 ease-in-out z-50
-        ${collapsed ? 'w-16' : 'w-64'}
-        ${mobileOpen 
-          ? 'translate-x-0' 
-          : '-translate-x-full lg:translate-x-0'
-        }
-      `}>
-        <div className="flex flex-col h-full">
-          {/* Header space */}
-          <div className="h-20 flex-shrink-0"></div>
-          
-          {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                onClick={() => onClose()}
-                className={`
-                  group flex items-center px-3 py-2 text-sm font-medium rounded-lg 
-                  transition-colors relative
-                  ${isActive(item.href)
-                    ? 'bg-green-100 text-green-700'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }
-                `}
-                title={collapsed ? item.name : undefined}
-              >
-                {/* Active indicator */}
-                {isActive(item.href) && (
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500 rounded-r"></div>
-                )}
-                
-                <svg
-                  className={`flex-shrink-0 h-5 w-5 ${
-                    isActive(item.href) ? 'text-green-500' : 'text-gray-400 group-hover:text-gray-500'
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                </svg>
-                
-                {!collapsed && (
-                  <span className="ml-3 truncate">{item.name}</span>
-                )}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Bottom section */}
-          <div className="p-3 border-t border-gray-200 flex-shrink-0">
+      <aside
+        className={`fixed left-0 top-0 z-50 flex h-full flex-col border-r border-slate-200 bg-white shadow-sm transition-all duration-300 ${collapsed ? "w-20" : "w-64"} ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+      >
+        {/* Header */}
+        <div className="flex h-20 shrink-0 items-center border-b border-slate-200 px-4">
+          <div className="flex w-full items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-md">
+              <span className="material-symbols-outlined text-lg">eco</span>
+            </div>
             {!collapsed && (
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-3 mb-3">
-                <div className="flex items-center space-x-2 mb-2">
-                  <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
-                  {/* <span className="text-xs font-medium text-gray-700">System Status</span> */}
-                </div>
-                {/* <p className="text-xs text-gray-600">All devices online</p>
-                <p className="text-xs text-gray-500">Last sync: 2 min ago</p> */}
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-bold text-slate-900">DroughtSmart</h2>
+                <p className="truncate text-xs text-slate-500">{roleTitle}</p>
               </div>
             )}
+          </div>
+        </div>
 
-            {/* Status indicator for collapsed sidebar */}
-            {collapsed && (
-              <div className="flex justify-center mb-3">
-                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" title="All systems operational"></div>
-              </div>
-            )}
-
-            {/* User info */}
-            <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-3'}`}>
-              <div className="h-8 w-8 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-medium text-sm shadow-sm">
-                JF
-              </div>
-              {!collapsed && (
-                <div className="flex-1 min-w-0">
-                  {/* <p className="text-sm font-medium text-gray-900 truncate">John Farmer</p> */}
-                  <p className="text-xs text-gray-500 truncate">Premium Plan</p>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-2 py-4">
+          {groups.map((group) => (
+            <div key={group.label ?? "default"} className="mb-4">
+              {!collapsed && group.label && (
+                <div className="mb-2 px-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    {group.label}
+                  </p>
                 </div>
               )}
+              <div className="space-y-0.5">
+                {group.links.map((link) => (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    onClick={() => onClose()}
+                    className={({ isActive }) =>
+                      `group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? "bg-emerald-100 text-emerald-700 shadow-sm"
+                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      }`
+                    }
+                    title={collapsed ? link.label : undefined}
+                  >
+                    <span
+                      className={`material-symbols-outlined shrink-0 text-lg transition-colors ${
+                        false ? "text-emerald-600" : "text-slate-500 group-hover:text-slate-700"
+                      }`}
+                    >
+                      {link.icon}
+                    </span>
+                    {!collapsed && <span className="truncate">{link.label}</span>}
+                  </NavLink>
+                ))}
+              </div>
             </div>
+          ))}
+        </nav>
+
+        {/* User Section */}
+        <div className="border-t border-slate-200 p-3">
+          <div className={`flex items-center gap-3 rounded-lg bg-slate-50 p-3 ${collapsed ? "justify-center" : ""}`}>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">
+              {initials}
+            </div>
+            {!collapsed && (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">{user?.name ?? "User"}</p>
+                  <p className="truncate text-xs text-slate-500">
+                    {user?.role ? user.role.replace(/_/g, " ") : "Account"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void logoutAndRedirect()}
+                  className="shrink-0 text-xs font-medium text-emerald-700 hover:text-emerald-900"
+                  title="Sign out"
+                >
+                  <span className="material-symbols-outlined text-lg">logout</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </aside>

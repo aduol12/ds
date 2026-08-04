@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getUserProfile } from '../api/users';
 import { User } from '../types/api';
-import { logout } from '../api/auth';
+import { useAuthNavigation } from "@/contexts/AuthContext";
+import { ApiError } from "@/utils/ApiError";
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -13,6 +14,7 @@ function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
+  const { logoutAndRedirect } = useAuthNavigation();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -21,8 +23,8 @@ function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
         setUser(userData);
       } catch (error) {
         console.error("Failed to fetch user profile for header", error);
-        if ((error as any)?.response?.status === 401) {
-            logout();
+        if (error instanceof ApiError && error.status === 401) {
+          void logoutAndRedirect();
         }
       }
     };
@@ -31,7 +33,7 @@ function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
   }, []);
 
   const handleSignOut = () => {
-    logout();
+    void logoutAndRedirect();
     setShowProfileDropdown(false);
   };
 

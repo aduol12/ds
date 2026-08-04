@@ -1,0 +1,1 @@
+export { RoleBasedRoute } from "./RoleGuard";

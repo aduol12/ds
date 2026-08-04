@@ -1,0 +1,16 @@
+{
+	admin off
+	persist_config off
+	auto_https off
+}
+
+# Listens on the $PORT Railway assigns automatically.
+:{$PORT:3000} {
+	encode gzip
+
+	root * /app/dist
+	file_server
+
+	# SPA fallback so client-side routes (React Router) survive a hard refresh.
+	try_files {path} /index.html
+}

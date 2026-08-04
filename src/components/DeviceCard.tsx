@@ -1,5 +1,5 @@
-    import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { DeviceSummary } from '../types/api';
 
 interface DeviceCardProps {
@@ -7,6 +7,8 @@ interface DeviceCardProps {
 }
 
 function DeviceCard({ device }: DeviceCardProps) {
+  const location = useLocation();
+  const basePath = location.pathname.startsWith('/super-admin') ? '/super-admin' : '/admin';
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showIrrigationModal, setShowIrrigationModal] = useState(false);
   const [irrigationMode, setIrrigationMode] = useState<'manual' | 'sensor' | 'smart'>('sensor');
@@ -19,21 +21,26 @@ function DeviceCard({ device }: DeviceCardProps) {
     { day: 'saturday', enabled: false, times: ['06:00'] },
     { day: 'sunday', enabled: false, times: ['06:00'] }
   ]);
-  const latestReading = device.latest_reading;
+  const latestReading = {
+    battery: device.battery,
+    signal: device.signal,
+    firmware: device.firmware,
+    timestamp: device.timestamp,
+  };
 
   const getStatus = (device: DeviceSummary) => {
-    if (!device.is_active) return { text: 'Offline', color: 'bg-red-100 text-red-800 border-red-200' };
+    if (!device.kit_is_active) return { text: 'Offline', color: 'bg-rose-100 text-rose-700 border-rose-200' };
     // TODO: Add logic for maintenance status
-    return { text: 'Active', color: 'bg-green-100 text-green-800 border-green-200' };
+    return { text: 'Active', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' };
   };
 
   const status = getStatus(device);
 
   const getBatteryColor = (level: number | null | undefined) => {
-    if (level === null || level === undefined) return 'text-gray-400';
-    if (level > 50) return 'text-green-600';
-    if (level > 20) return 'text-yellow-600';
-    return 'text-red-600';
+    if (level === null || level === undefined) return 'text-slate-400';
+    if (level > 50) return 'text-emerald-600';
+    if (level > 20) return 'text-amber-600';
+    return 'text-rose-600';
   };
 
   const getSignalBars = (strength: number | null | undefined) => {
@@ -42,7 +49,7 @@ function DeviceCard({ device }: DeviceCardProps) {
       <div
         key={i}
         className={`w-1 rounded-sm ${
-          i < level ? 'bg-green-500' : 'bg-gray-300'
+          i < level ? 'bg-emerald-500' : 'bg-slate-200'
         }`}
         style={{ height: `${(i + 1) * 3 + 2}px` }}
       />
@@ -50,12 +57,12 @@ function DeviceCard({ device }: DeviceCardProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">{device.location_name}</h3>
-          <p className="text-sm text-gray-600">{device.crop_type}</p>
+          <h3 className="text-lg font-semibold text-slate-900">{device.kit_location_name}</h3>
+          <p className="text-sm text-slate-500">{device.kit_crop_type}</p>
         </div>
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${status.color}`}>
           {status.text}
@@ -69,7 +76,7 @@ function DeviceCard({ device }: DeviceCardProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           <div>
-            <p className="text-sm text-gray-600">Battery</p>
+            <p className="text-sm text-slate-500">Battery</p>
             <p className={`font-medium ${getBatteryColor(latestReading?.battery)}`}>
               {latestReading?.battery ?? 'N/A'}%
             </p>
@@ -81,8 +88,8 @@ function DeviceCard({ device }: DeviceCardProps) {
             {getSignalBars(latestReading?.signal)}
           </div>
           <div>
-            <p className="text-sm text-gray-600">Signal</p>
-            <p className="font-medium text-gray-900">{latestReading?.signal ? `${Math.round(latestReading.signal / 20)}/5` : 'N/A'}</p>
+            <p className="text-sm text-slate-500">Signal</p>
+            <p className="font-medium text-slate-900">{latestReading?.signal ? `${Math.round(latestReading.signal / 20)}/5` : 'N/A'}</p>
           </div>
         </div>
       </div>
@@ -90,12 +97,12 @@ function DeviceCard({ device }: DeviceCardProps) {
       {/* Device Details */}
       <div className="space-y-2 mb-4">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Kit ID:</span>
-          <span className="font-medium">{device.kit_id}</span>
+          <span className="text-slate-500">Kit ID:</span>
+          <span className="font-medium">{device.kit_id ?? 'N/A'}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Crop Type:</span>
-          <span className="font-medium">{device.crop_type}</span>
+          <span className="font-medium">{device.kit_crop_type}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Firmware:</span>
@@ -107,33 +114,33 @@ function DeviceCard({ device }: DeviceCardProps) {
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Latitude:</span>
-          <span className="font-medium">{device.latitude}</span>
+          <span className="font-medium">{device.kit_latitude}</span>
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-gray-600">Longitude:</span>
-          <span className="font-medium">{device.longitude}</span>
+          <span className="font-medium">{device.kit_longitude}</span>
         </div>
       </div>
 
       {/* Action Buttons */}
-      <div className="flex space-x-2 pt-4 border-t border-gray-200">
+      <div className="flex space-x-2 pt-4 border-t border-slate-200">
         <Link 
-          to={`/device/${device.kit_id}`}
-          className="flex-1 text-sm text-blue-600 hover:text-blue-700 font-medium py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center group relative"
+          to={`${basePath}/devices/${device.kit_id ?? ''}`}
+          className="flex-1 text-sm text-sky-600 hover:text-sky-700 font-medium py-2 px-3 rounded-lg hover:bg-sky-50 transition-colors flex items-center justify-center group relative"
           title="View Device Details"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
           </svg>
-          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
+          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none">
             View Device Details
           </div>
         </Link>
         
         <Link 
-          to={`/device/${device.kit_id}/analytics`}
-          className="flex-1 text-sm text-gray-600 hover:text-gray-700 font-medium py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center group relative"
+          to={`${basePath}/devices/${device.kit_id ?? ''}/analytics`}
+          className="flex-1 text-sm text-slate-600 hover:text-slate-700 font-medium py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-center group relative"
           title="View Historical Data"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,7 +167,7 @@ function DeviceCard({ device }: DeviceCardProps) {
         
         <button 
           onClick={() => setShowIrrigationModal(true)}
-          className="flex-1 text-sm text-green-600 hover:text-green-700 font-medium py-2 px-3 rounded-lg hover:bg-green-50 transition-colors flex items-center justify-center group relative"
+          className="flex-1 text-sm text-emerald-600 hover:text-emerald-700 font-medium py-2 px-3 rounded-lg hover:bg-emerald-50 transition-colors flex items-center justify-center group relative"
           title="Irrigation Settings"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +179,7 @@ function DeviceCard({ device }: DeviceCardProps) {
         </button>
         
         <button 
-          className="text-sm text-red-600 hover:text-red-700 font-medium py-2 px-3 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center group relative"
+          className="text-sm text-rose-600 hover:text-rose-700 font-medium py-2 px-3 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-center group relative"
           title="Delete Device"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,7 +216,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Device Name</label>
                   <input
                     type="text"
-                    defaultValue={device.location_name}
+                    defaultValue={device.kit_location_name}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -218,7 +225,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                   <input
                     type="text"
-                    defaultValue={device.location_name}
+                    defaultValue={device.kit_location_name}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
@@ -229,7 +236,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                     <input
                       type="number"
                       step="0.000001"
-                      defaultValue={device.latitude || ''}
+                      defaultValue={device.kit_latitude || ''}
                       placeholder="e.g., 40.7128"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
@@ -240,7 +247,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                     <input
                       type="number"
                       step="0.000001"
-                      defaultValue={device.longitude || ''}
+                      defaultValue={device.kit_longitude || ''}
                       placeholder="e.g., -74.0060"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
@@ -250,7 +257,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Crop Type</label>
                   <select 
-                    defaultValue={device.crop_type.toLowerCase()}
+                    defaultValue={device.kit_crop_type.toLowerCase()}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="corn">Corn</option>

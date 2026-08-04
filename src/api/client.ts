@@ -1,8 +1,14 @@
 import axios, { AxiosInstance } from 'axios';
 
+import { emitSessionExpired } from "@/services/session.service";
+
 const STORAGE_KEY = 'ds_token';
 
-const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api';
+// In dev, requests are same-origin and handled by the Vite proxy (see vite.config.ts).
+// In production, VITE_API_BASE must be the full backend origin (no path suffix) —
+// individual API modules already include the correct path prefix per endpoint
+// (e.g. /api/assets/kit vs /users/me), matching how the backend mounts its routes.
+const API_BASE = (import.meta.env.VITE_API_BASE as string) || '';
 
 const client: AxiosInstance = axios.create({
   baseURL: API_BASE,
@@ -44,15 +50,10 @@ client.interceptors.response.use(
   (res) => res,
   (error) => {
     const status = error?.response?.status;
-    if (status === 401) {
-      // token expired or invalid — clear and redirect to login
+    const token = getToken();
+    if (status === 401 && token) {
       clearToken();
-      try {
-        // best-effort redirect
-        if (typeof window !== 'undefined') window.location.href = '/login';
-      } catch (e) {
-        // ignore in non-browser env
-      }
+      emitSessionExpired();
     }
     return Promise.reject(error);
   }

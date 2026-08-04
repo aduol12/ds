@@ -1,12 +1,29 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { DeviceSummary } from '../types/api';
+import { sendControlCommand } from '../api/control';
+import { useToasts } from '../hooks/useToasts';
 
 interface SensorReadingProps {
   device: DeviceSummary;
 }
 
 function SensorReading({ device }: SensorReadingProps) {
-  const latestReading = device.latest_reading;
+  const location = useLocation();
+  const basePath = location.pathname.startsWith('/super-admin') ? '/super-admin' : '/admin';
+  const { addToast } = useToasts();
+  const [isToggling, setIsToggling] = useState(false);
+  const [isIrrigating, setIsIrrigating] = useState(device.kit_is_irrigating);
+  const latestReading = {
+    moisture: device.moisture,
+    temperature: device.temperature,
+    ph: device.ph,
+    ec: device.ec,
+    nitrogen: device.nitrogen,
+    phosphorus: device.phosphorus,
+    potassium: device.potassium,
+    timestamp: device.timestamp,
+  };
 
   const getStatusColor = (moisture: number | null | undefined) => {
     if (moisture === null || moisture === undefined) return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -22,6 +39,25 @@ function SensorReading({ device }: SensorReadingProps) {
     return 'text-red-600';
   };
 
+  const handleToggleIrrigation = async () => {
+    if (!device.kit_id || isToggling) return;
+    const nextState = !isIrrigating;
+    setIsToggling(true);
+    try {
+      await sendControlCommand(device.kit_id, nextState);
+      setIsIrrigating(nextState);
+      addToast(
+        nextState ? 'Irrigation started.' : 'Irrigation stopped.',
+        'success',
+      );
+    } catch (error) {
+      console.error('Failed to send control command', error);
+      addToast('Failed to update irrigation status.', 'error');
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col justify-between h-full">
       <div>
@@ -29,10 +65,10 @@ function SensorReading({ device }: SensorReadingProps) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <Link
-              to={`/device/${device.kit_id}`}
+              to={`${basePath}/devices/${device.kit_id ?? ''}`}
               className="text-lg font-semibold text-gray-900 hover:text-green-600 transition-colors"
             >
-              {device.location_name}
+              {device.kit_location_name}
             </Link>
             <p className="text-sm text-gray-600">Kit ID: {device.kit_id}</p>
           </div>
@@ -40,7 +76,7 @@ function SensorReading({ device }: SensorReadingProps) {
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(latestReading?.moisture)}`}>
               {latestReading?.moisture === null || latestReading?.moisture === undefined ? 'Inactive' : latestReading.moisture >= 40 ? 'Optimal' : latestReading.moisture >= 30 ? 'Warning' : 'Low'}
             </span>
-            {device.is_irrigating && (
+            {isIrrigating && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
                 💧 Watering
               </span>
@@ -99,7 +135,7 @@ function SensorReading({ device }: SensorReadingProps) {
         </p>
         <div className="flex space-x-2">
           <Link
-            to={`/device/${device.kit_id}`}
+            to={`${basePath}/devices/${device.kit_id ?? ''}`}
             className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors group relative"
             title="View Device Details"
           >
@@ -113,7 +149,7 @@ function SensorReading({ device }: SensorReadingProps) {
           </Link>
 
           <Link
-            to={`/device/${device.kit_id}/analytics`}
+            to={`${basePath}/devices/${device.kit_id ?? ''}/analytics`}
             className="text-gray-600 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-50 transition-colors group relative"
             title="View Historical Data"
           >
@@ -126,31 +162,32 @@ function SensorReading({ device }: SensorReadingProps) {
           </Link>
 
           <button
-            disabled={!latestReading}
+            onClick={handleToggleIrrigation}
+            disabled={!device.kit_id || isToggling}
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 group relative ${
-              device.is_irrigating
+              isIrrigating
                 ? 'text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200'
                 : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-200'
-            } ${!latestReading ? 'cursor-not-allowed bg-gray-100 text-gray-400' : ''}`}
+            } ${!device.kit_id || isToggling ? 'cursor-not-allowed opacity-60' : ''}`}
           >
-            {device.is_irrigating ? (
+            {isIrrigating ? (
               <>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10h6v4H9z" />
                 </svg>
-                <span>Stop Water</span>
+                <span>{isToggling ? 'Stopping...' : 'Stop Water'}</span>
               </>
             ) : (
               <>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                 </svg>
-                <span>Start Water</span>
+                <span>{isToggling ? 'Starting...' : 'Start Water'}</span>
               </>
             )}
             <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap pointer-events-none z-10">
-              {device.is_irrigating ? 'Stop watering this zone' : 'Start watering this zone'}
+              {isIrrigating ? 'Stop watering this zone' : 'Start watering this zone'}
             </div>
           </button>
         </div>
