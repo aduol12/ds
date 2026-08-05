@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -142,6 +143,20 @@ export function useAuthNavigation() {
 
 export function getAuthErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
+  if (axios.isAxiosError(error)) {
+    const apiMessage =
+      (typeof error.response?.data?.message === "string" &&
+        error.response.data.message) ||
+      (typeof error.response?.data?.error === "string" &&
+        error.response.data.error);
+    if (apiMessage) return apiMessage;
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return "Invalid phone number or password.";
+    }
+    if (!error.response) {
+      return "Unable to reach the server. Please check your connection and try again.";
+    }
+  }
   if (error instanceof Error) return error.message;
   return "Something went wrong. Please try again.";
 }
