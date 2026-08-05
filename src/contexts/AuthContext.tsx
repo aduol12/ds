@@ -28,14 +28,13 @@ interface AuthContextValue {
   login: (credentials: LoginCredentials) => Promise<AuthUser>;
   logout: () => Promise<void>;
   hasPermission: (action: PermissionKey) => boolean;
-  /** Dev-only role preview when VITE_ENABLE_ROLE_SWITCHER is true */
+  /** Role preview when VITE_ENABLE_ROLE_SWITCHER is true */
   switchRole?: (role: Role) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const enableRoleSwitcher =
-  import.meta.env.DEV &&
   import.meta.env.VITE_ENABLE_ROLE_SWITCHER === "true";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {

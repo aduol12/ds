@@ -9,15 +9,43 @@ import {
 import { useToasts } from "@/hooks/useToasts";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { SessionExpiredError } from "@/utils/ApiError";
+import type { Role } from "@/types/auth";
+
+type PortalOption = {
+  role: Role;
+  label: string;
+  description: string;
+};
+
+const PORTALS: PortalOption[] = [
+  {
+    role: "FARMER",
+    label: "Farmer",
+    description: "Farms, irrigation & advisories",
+  },
+  {
+    role: "ADMIN",
+    label: "Admin",
+    description: "Users, devices & monitoring",
+  },
+  {
+    role: "SUPER_ADMIN",
+    label: "Super Admin",
+    description: "Orgs, billing & system settings",
+  },
+];
 
 function Login() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedPortal, setSelectedPortal] = useState<Role>("ADMIN");
   const { login } = useAuth();
   const { redirectToRoleHome } = useAuthNavigation();
   const { addToast } = useToasts();
   const { isInstallable, isIOS, handleInstall } = useInstallPrompt();
+  const roleSwitcherEnabled =
+    import.meta.env.VITE_ENABLE_ROLE_SWITCHER === "true";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +55,18 @@ function Login() {
         phone_number: phoneNumber,
         password,
       });
+
+      if (user.role !== selectedPortal) {
+        addToast(
+          `Signed in as ${user.role.replaceAll("_", " ")}. Opening that portal.` +
+            (roleSwitcherEnabled
+              ? " Use Preview portal (bottom-left) to open Farmer or Super Admin."
+              : ""),
+          "info",
+          7000,
+        );
+      }
+
       redirectToRoleHome(user.role);
     } catch (error) {
       if (error instanceof SessionExpiredError) {
@@ -84,6 +124,41 @@ function Login() {
         )}
 
         <form className="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-lg" onSubmit={handleSubmit}>
+          <div>
+            <p className="mb-2 text-sm font-medium text-gray-700">Portal</p>
+            <div className="grid grid-cols-3 gap-2">
+              {PORTALS.map((portal) => (
+                <button
+                  key={portal.role}
+                  type="button"
+                  onClick={() => setSelectedPortal(portal.role)}
+                  className={`rounded-lg border px-2 py-2.5 text-left transition ${
+                    selectedPortal === portal.role
+                      ? "border-green-600 bg-green-50"
+                      : "border-gray-200 hover:border-green-300"
+                  }`}
+                >
+                  <span
+                    className={`block text-xs font-semibold ${
+                      selectedPortal === portal.role ? "text-green-800" : "text-gray-800"
+                    }`}
+                  >
+                    {portal.label}
+                  </span>
+                  <span className="mt-0.5 block text-[10px] leading-snug text-gray-500">
+                    {portal.description}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              You&apos;ll open the portal that matches your account role.
+              {roleSwitcherEnabled
+                ? " After sign-in, use Preview portal (bottom-left) to try Farmer or Super Admin."
+                : ""}
+            </p>
+          </div>
+
           <div className="space-y-4">
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
@@ -123,7 +198,9 @@ function Login() {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:bg-gray-400"
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading
+                ? "Signing in..."
+                : `Sign in to ${PORTALS.find((p) => p.role === selectedPortal)?.label ?? "Portal"}`}
             </button>
           </div>
 
