@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "install": {
+      "commands": [
+        {
+          "cmd": "npm ci --legacy-peer-deps",
+          "customName": "Install dependencies with legacy-peer-deps"
+        },
+        { "path": "node_modules/.bin" }
+      ]
+    },
+    "build": {
+      "commands": [
+        "npm run build"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "npm run start" 
+  }
+}
