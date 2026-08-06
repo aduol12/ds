@@ -120,11 +120,13 @@ ds-back-master/src/
 - ✅ Dashboard summary `GET /api/dashboard/summary`
 - ✅ Admin Farmers / Farms / FarmerDetails pages wired to Nest
 
-### Wave 3 — Irrigation, alerts UI, notifications ✅ started
+### Wave 3 — Irrigation, alerts UI, notifications ✅
 - ✅ Irrigation zones + events (`/api/irrigation/zones`, start/stop, events)
 - ✅ Staff-scoped alerts list; admin Alerts page wired to `/api/alerts`
-- ⏳ Notification outbox + SMS/email/in-app providers (mock first)
-- ⏳ Irrigation schedules + water usage aggregates
+- ✅ Notification outbox + mock provider (`/api/notifications`)
+- ✅ Irrigation schedules + water usage (`/api/irrigation/zones/:id/schedules`, `/api/irrigation/usage`)
+- ⏳ Real SMS/email providers (Twilio/SendGrid)
+- ⏳ Schedule runner / cron executor
 
 ### Wave 4 — Weather, AI advisory, reports, media
 - Weather provider adapter + forecasts/alerts

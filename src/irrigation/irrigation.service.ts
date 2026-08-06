@@ -7,10 +7,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IrrigationZone } from './entities/irrigation-zone.entity';
 import { IrrigationEvent } from './entities/irrigation-event.entity';
+import { IrrigationSchedule } from './entities/irrigation-schedule.entity';
 import { Farm } from '../farms/entities/farm.entity';
 import {
   CreateIrrigationEventDto,
+  CreateIrrigationScheduleDto,
   CreateIrrigationZoneDto,
+  UpdateIrrigationScheduleDto,
   UpdateIrrigationZoneDto,
 } from './dto/irrigation.dto';
 import { isStaffRole } from '../common/rbac';
@@ -23,6 +26,8 @@ export class IrrigationService {
     private readonly zonesRepo: Repository<IrrigationZone>,
     @InjectRepository(IrrigationEvent)
     private readonly eventsRepo: Repository<IrrigationEvent>,
+    @InjectRepository(IrrigationSchedule)
+    private readonly schedulesRepo: Repository<IrrigationSchedule>,
     @InjectRepository(Farm)
     private readonly farmsRepo: Repository<Farm>,
   ) {}
@@ -142,5 +147,82 @@ export class IrrigationService {
         event_time: dto.event_time ? new Date(dto.event_time) : new Date(),
       }),
     );
+  }
+
+  async listSchedules(zoneId: string, userId: string, role: Role) {
+    const zone = await this.zonesRepo.findOneBy({ id: zoneId });
+    if (!zone) throw new NotFoundException('Irrigation zone not found');
+    await this.assertFarmAccess(zone.farm_id, userId, role);
+    return this.schedulesRepo.find({
+      where: { zone_id: zoneId },
+      order: { start_time: 'ASC' },
+    });
+  }
+
+  async createSchedule(
+    zoneId: string,
+    userId: string,
+    role: Role,
+    dto: CreateIrrigationScheduleDto,
+  ) {
+    const zone = await this.zonesRepo.findOneBy({ id: zoneId });
+    if (!zone) throw new NotFoundException('Irrigation zone not found');
+    await this.assertFarmAccess(zone.farm_id, userId, role);
+    return this.schedulesRepo.save(
+      this.schedulesRepo.create({
+        zone_id: zoneId,
+        name: dto.name,
+        start_time: dto.start_time,
+        duration_minutes: dto.duration_minutes ?? 30,
+        days_of_week: dto.days_of_week || '',
+        is_enabled: dto.is_enabled ?? true,
+      }),
+    );
+  }
+
+  async updateSchedule(
+    zoneId: string,
+    scheduleId: string,
+    userId: string,
+    role: Role,
+    dto: UpdateIrrigationScheduleDto,
+  ) {
+    const zone = await this.zonesRepo.findOneBy({ id: zoneId });
+    if (!zone) throw new NotFoundException('Irrigation zone not found');
+    await this.assertFarmAccess(zone.farm_id, userId, role);
+    const schedule = await this.schedulesRepo.findOneBy({
+      id: scheduleId,
+      zone_id: zoneId,
+    });
+    if (!schedule) throw new NotFoundException('Schedule not found');
+    Object.assign(schedule, dto);
+    return this.schedulesRepo.save(schedule);
+  }
+
+  async waterUsageSummary(userId: string, role: Role, farmId?: string) {
+    if (farmId) await this.assertFarmAccess(farmId, userId, role);
+
+    const qb = this.eventsRepo
+      .createQueryBuilder('e')
+      .innerJoin('e.zone', 'z')
+      .select('COALESCE(SUM(e.water_volume_liters), 0)', 'total_liters')
+      .addSelect('COUNT(*)', 'event_count')
+      .where("e.event_type = 'stop'");
+
+    if (farmId) {
+      qb.andWhere('z.farm_id = :farmId', { farmId });
+    } else if (!isStaffRole(role)) {
+      qb.innerJoin(Farm, 'f', 'f.id = z.farm_id').andWhere(
+        'f.owner_user_id = :userId',
+        { userId },
+      );
+    }
+
+    const raw = await qb.getRawOne<{ total_liters: string; event_count: string }>();
+    return {
+      total_liters: parseFloat(raw?.total_liters || '0') || 0,
+      event_count: parseInt(raw?.event_count || '0', 10) || 0,
+      farm_id: farmId || null,
+    };
   }
 }

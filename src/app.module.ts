@@ -16,6 +16,7 @@ import { FarmsModule } from './farms/farms.module';
 import { FarmersModule } from './farmers/farmers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { IrrigationModule } from './irrigation/irrigation.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { IrrigationModule } from './irrigation/irrigation.module';
     FarmersModule,
     DashboardModule,
     IrrigationModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
