@@ -7,6 +7,7 @@ const ROLE_ALIASES: Record<string, Role> = {
   superadmin: "SUPER_ADMIN",
   ADMIN: "ADMIN",
   admin: "ADMIN",
+  Admin: "ADMIN",
   AGRONOMIST: "AGRONOMIST",
   agronomist: "AGRONOMIST",
   FIELD_TECHNICIAN: "FIELD_TECHNICIAN",
@@ -20,6 +21,9 @@ const ROLE_ALIASES: Record<string, Role> = {
   fieldofficer: "FIELD_TECHNICIAN",
   FARMER: "FARMER",
   farmer: "FARMER",
+  // NestJS ds-back roles
+  USER: "FARMER",
+  user: "FARMER",
 };
 
 export function normalizeRole(value: unknown): Role {

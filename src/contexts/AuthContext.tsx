@@ -143,11 +143,20 @@ export function useAuthNavigation() {
 export function getAuthErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (axios.isAxiosError(error)) {
+    const data = error.response?.data as Record<string, unknown> | undefined;
+    const detail = data?.detail;
     const apiMessage =
-      (typeof error.response?.data?.message === "string" &&
-        error.response.data.message) ||
-      (typeof error.response?.data?.error === "string" &&
-        error.response.data.error);
+      (typeof data?.message === "string" && data.message) ||
+      (typeof data?.error === "string" && data.error) ||
+      (typeof detail === "string" && detail) ||
+      (Array.isArray(detail) &&
+        detail
+          .map((item) =>
+            typeof item === "object" && item && "msg" in item
+              ? String((item as { msg: unknown }).msg)
+              : String(item),
+          )
+          .join(", "));
     if (apiMessage) return apiMessage;
     if (error.response?.status === 401 || error.response?.status === 403) {
       return "Invalid phone number or password.";

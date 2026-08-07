@@ -1,63 +1,28 @@
-# React + TypeScript + Vite
+# DroughtSmart Portal Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript + Vite portal for farmers, admins, and field staff.
 
-Currently, two official plugins are available:
+## Backend
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+The portal uses the NestJS API in **`../ds-back-master`** (Railway: `https://ds-back-production.up.railway.app`).
 
-## Expanding the ESLint configuration
+See [../ds-back-master/MIGRATION_PLAN.md](../ds-back-master/MIGRATION_PLAN.md) for the backend roadmap.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+### Local portal + live Railway API
 
-- Configure the top-level `parserOptions` property like this:
+1. In `.env.development`, keep:
+   `VITE_API_PROXY_TARGET=https://ds-back-production.up.railway.app`
+2. `npm run dev`
+3. Sign in with a production Nest account (`user` → Farmer, `admin` → Admin).
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+### Local Nest API
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+1. Configure `../ds-back-master/.env` from `.env.example`, then `npm run start:dev` (port 3000).
+2. Set `VITE_API_PROXY_TARGET=http://127.0.0.1:3000` and restart Vite.
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+## Scripts
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
-
-## Deploying to Railway
-
-This app is a static Vite build, so it ships as a small Docker image (`Dockerfile`) that builds the app with Node and serves the resulting `dist/` folder with [Caddy](https://caddyserver.com/) (`Caddyfile`). `railway.json` pins Railway to that Dockerfile builder so it doesn't try to auto-detect a different build strategy.
-
-Steps to deploy:
-
-1. Create a new Railway service from this GitHub repo (the `Dockerfile` lives at the repo root, so the default Root Directory works — no path override needed).
-2. Railway will build the `Dockerfile` and serve the app on the port it assigns automatically — no start command needed.
-3. Environment variables: production defaults already live in `.env.production` (checked into the repo), so no variables are strictly required. To override them per-deployment, set a Railway service variable with the matching name (e.g. `VITE_API_BASE`, `VITE_ENABLE_ROLE_SWITCHER`) — these are wired up as Docker build args in the `Dockerfile` and will take precedence over the `.env.production` values.
-4. Once deployed, Railway gives you a `*.up.railway.app` URL (or attach a custom domain). That URL is what the marketing site (`droughtsmart-solutions`) should link to for "Login to Portal".
-
-# frontend
+- `npm install`
+- `npm run dev`
+- `npm run build`
+- `npm run lint`

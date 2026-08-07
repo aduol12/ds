@@ -1,47 +1,71 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { DataTable } from "@/components/DataTable";
 import { StatusBadge } from "@/components/StatusBadge";
+import { listFarmers, type FarmerListItem } from "@/api/farmers";
+import { useToasts } from "@/hooks/useToasts";
 
-const farmerRows = [
-  {
-    id: "F-101",
-    name: "Amina Otieno",
-    phone: "+254 712 000 111",
-    location: "Nakuru",
-    farmCount: 2,
+type FarmerRow = {
+  id: string;
+  name: string;
+  phone: string;
+  location: string;
+  farmCount: number;
+  health: string;
+  irrigation: string;
+  alerts: number;
+  status: string;
+};
+
+function toRow(farmer: FarmerListItem): FarmerRow {
+  const name = `${farmer.first_name || ""} ${farmer.last_name || ""}`.trim() || "Unnamed";
+  return {
+    id: farmer.id,
+    name,
+    phone: farmer.phone_number || "—",
+    location:
+      farmer.farmProfile?.location ||
+      farmer.farmProfile?.farm_name ||
+      "—",
+    farmCount: farmer.farm_count ?? 0,
     health: "Healthy",
-    irrigation: "Scheduled",
-    alerts: 1,
-    status: "Active",
-  },
-  {
-    id: "F-102",
-    name: "Daniel Kiprop",
-    phone: "+254 723 100 222",
-    location: "Kisumu",
-    farmCount: 1,
-    health: "Warning",
-    irrigation: "Paused",
-    alerts: 3,
-    status: "Needs Review",
-  },
-  {
-    id: "F-103",
-    name: "Grace Wanjiku",
-    phone: "+254 734 200 333",
-    location: "Meru",
-    farmCount: 3,
-    health: "Healthy",
-    irrigation: "Automated",
+    irrigation: "—",
     alerts: 0,
     status: "Active",
-  },
-];
+  };
+}
 
 export default function FarmersPage() {
   const navigate = useNavigate();
+  const { addToast } = useToasts();
+  const [rows, setRows] = useState<FarmerRow[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await listFarmers({ search: search || undefined, limit: 50 });
+        if (!cancelled) setRows((res.data || []).map(toRow));
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setRows([]);
+          addToast("Failed to load farmers.", "error");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    const t = setTimeout(load, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [search]);
 
   const columns = useMemo(
     () => [
@@ -62,7 +86,7 @@ export default function FarmersPage() {
       {
         key: "actions",
         label: "Actions",
-        render: (_: unknown, row: (typeof farmerRows)[number]) => (
+        render: (_: unknown, row: FarmerRow) => (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -72,9 +96,6 @@ export default function FarmersPage() {
               title="View"
             >
               <span className="material-symbols-outlined text-base">visibility</span>
-            </button>
-            <button type="button" className="rounded-lg border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50" aria-label={`Edit ${row.name}`}>
-              <span className="material-symbols-outlined text-base">edit</span>
             </button>
           </div>
         ),
@@ -92,12 +113,21 @@ export default function FarmersPage() {
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
           <span className="material-symbols-outlined text-base text-slate-500">search</span>
-          <input className="w-56 border-0 bg-transparent text-sm outline-none" placeholder="Search farmers" />
+          <input
+            className="w-56 border-0 bg-transparent text-sm outline-none"
+            placeholder="Search farmers"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <DataTable data={farmerRows} columns={columns} emptyMessage="No farmers found" />
+        {loading ? (
+          <p className="p-6 text-sm text-slate-500">Loading farmers…</p>
+        ) : (
+          <DataTable data={rows} columns={columns} emptyMessage="No farmers found" />
+        )}
       </div>
     </div>
   );

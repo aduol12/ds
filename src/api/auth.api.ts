@@ -26,16 +26,21 @@ function mapProfileToAuthUser(
   const id =
     (typeof profile.id === "string" && profile.id) ||
     (typeof profile.user_id === "string" && profile.user_id) ||
+    (typeof profile.id === "number" && String(profile.id)) ||
+    (typeof profile.user_id === "number" && String(profile.user_id)) ||
     "unknown";
+
+  const phone =
+    (typeof profile.phoneNumber === "string" && profile.phoneNumber) ||
+    (typeof profile.phone_number === "string" && profile.phone_number) ||
+    (typeof profile.phone === "string" && profile.phone) ||
+    undefined;
 
   return {
     id,
     name: displayNameFromProfile(profile),
     email: typeof profile.email === "string" ? profile.email : undefined,
-    phoneNumber:
-      typeof profile.phone_number === "string"
-        ? profile.phone_number
-        : undefined,
+    phoneNumber: phone,
     role,
   };
 }
@@ -53,7 +58,10 @@ export async function login(
   setToken(token);
 
   if (response.data.user) {
-    return response.data.user;
+    return mapProfileToAuthUser(
+      response.data.user as unknown as Record<string, unknown>,
+      token,
+    );
   }
 
   const profile = await fetchCurrentUserProfile();
