@@ -1,64 +1,109 @@
 import { useState, useEffect } from 'react';
+import { AxiosError } from 'axios';
 import DeviceCard from '../../components/DeviceCard';
 import NoDevices from '../../components/NoDevices';
 import Loader from '../../components/Loader';
 import { getAllKits, createKit } from '../../api/assets';
 import { getLatestSensorData } from '../../api/data';
+import { listFarmers, type FarmerListItem } from '@/api/farmers';
 import { DeviceSummary, Kit } from '../../types/api';
 import { useToasts } from '../../hooks/useToasts';
 import { normalizeDeviceSummary } from '../../utils/deviceSummary';
 
+function apiErrorMessage(err: unknown): string {
+  const ax = err as AxiosError<{ message?: string | string[] }>;
+  const msg = ax?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(', ');
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  if (ax?.response?.status === 401) return 'Session expired. Please log in again.';
+  return 'Failed to add device.';
+}
+
 function Devices() {
   const [showAddDevice, setShowAddDevice] = useState(false);
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
+  const [farmers, setFarmers] = useState<FarmerListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { addToast } = useToasts();
   const [newDevice, setNewDevice] = useState({
     location_name: '',
     crop_type: '',
-    latitude: 0,
-    longitude: 0,
-    reading_interval_active_min: 5,
-    reading_interval_idle_min: 30,
+    latitude: '',
+    longitude: '',
+    reading_interval_active_min: '5',
+    reading_interval_idle_min: '30',
+    farmer_id: '',
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
-    const numericFields = ['latitude', 'longitude', 'reading_interval_active_min', 'reading_interval_idle_min'];
-    if (numericFields.includes(name)) {
-      setNewDevice((prev) => ({ ...prev, [name]: parseFloat(value) }));
-    } else {
-      setNewDevice((prev) => ({ ...prev, [name]: value }));
-    }
+    setNewDevice((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleAddDevice = async (e: React.FormEvent) => {
     e.preventDefault();
+    const latitude = Number(newDevice.latitude);
+    const longitude = Number(newDevice.longitude);
+    const reading_interval_active_min = Number(newDevice.reading_interval_active_min);
+    const reading_interval_idle_min = Number(newDevice.reading_interval_idle_min);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      addToast('Enter valid latitude and longitude.', 'error');
+      return;
+    }
+    if (
+      !Number.isFinite(reading_interval_active_min) ||
+      !Number.isFinite(reading_interval_idle_min) ||
+      reading_interval_active_min < 1 ||
+      reading_interval_idle_min < 1
+    ) {
+      addToast('Reading intervals must be at least 1 minute.', 'error');
+      return;
+    }
+
+    setSaving(true);
     try {
-      const createdKit = await createKit(newDevice);
+      const createdKit = await createKit({
+        location_name: newDevice.location_name.trim(),
+        crop_type: newDevice.crop_type.trim(),
+        latitude,
+        longitude,
+        reading_interval_active_min,
+        reading_interval_idle_min,
+        ...(newDevice.farmer_id ? { farmer_id: newDevice.farmer_id } : {}),
+      });
       setDevices((prev) => [...prev, normalizeDeviceSummary(createdKit, null)]);
       setShowAddDevice(false);
       setNewDevice({
         location_name: '',
         crop_type: '',
-        latitude: 0,
-        longitude: 0,
-        reading_interval_active_min: 5,
-        reading_interval_idle_min: 30,
+        latitude: '',
+        longitude: '',
+        reading_interval_active_min: '5',
+        reading_interval_idle_min: '30',
+        farmer_id: '',
       });
       addToast('Device added successfully!', 'success');
     } catch (err) {
       console.error('Failed to add device:', err);
-      addToast('Failed to add device.', 'error');
+      addToast(apiErrorMessage(err), 'error');
+    } finally {
+      setSaving(false);
     }
   };
-
 
   useEffect(() => {
     const fetchDevicesAndData = async () => {
       try {
-        const kits: Kit[] = await getAllKits();
+        const [kits, farmerData] = await Promise.all([
+          getAllKits() as Promise<Kit[]>,
+          listFarmers({ limit: 100 }).catch(() => ({ data: [] as FarmerListItem[] })),
+        ]);
+        setFarmers(farmerData.data || []);
 
         const devicesWithLiveData = await Promise.all(
           kits.map(async (kit) => {
@@ -69,7 +114,7 @@ function Devices() {
               console.warn(`Failed to fetch live data for kit ${kit.kit_id}`, error);
               return normalizeDeviceSummary(kit, null);
             }
-          })
+          }),
         );
         setDevices(devicesWithLiveData);
         setError(null);
@@ -82,7 +127,7 @@ function Devices() {
       }
     };
 
-    fetchDevicesAndData();
+    void fetchDevicesAndData();
   }, []);
   const activeDevices = devices.filter((device) => device.kit_is_active).length;
   const offlineDevices = devices.filter((device) => !device.kit_is_active).length;
@@ -235,6 +280,32 @@ function Devices() {
               
               <form className="space-y-4" onSubmit={handleAddDevice}>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Assign to farmer (optional)
+                  </label>
+                  <select
+                    name="farmer_id"
+                    value={newDevice.farmer_id}
+                    onChange={handleInputChange}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Me (current admin)…</option>
+                    {farmers.map((farmer) => {
+                      const label =
+                        `${farmer.first_name || ''} ${farmer.last_name || ''}`.trim() ||
+                        farmer.phone_number ||
+                        farmer.id;
+                      return (
+                        <option key={farmer.id} value={farmer.id}>
+                          {label}
+                          {farmer.phone_number ? ` · ${farmer.phone_number}` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location Name</label>
                   <input
                     type="text"
@@ -266,7 +337,7 @@ function Devices() {
                     <input
                       type="number"
                       name="latitude"
-                      step="0.000001"
+                      step="any"
                       value={newDevice.latitude}
                       onChange={handleInputChange}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -280,7 +351,7 @@ function Devices() {
                     <input
                       type="number"
                       name="longitude"
-                      step="0.000001"
+                      step="any"
                       value={newDevice.longitude}
                       onChange={handleInputChange}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -330,9 +401,10 @@ function Devices() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors"
+                    disabled={saving}
+                    className="flex-1 px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors disabled:opacity-60"
                   >
-                    Add Device
+                    {saving ? 'Saving…' : 'Add Device'}
                   </button>
                 </div>
               </form>
