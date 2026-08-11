@@ -26,6 +26,8 @@ function toRow(farmer: FarmerListItem): FarmerRow {
     phone: farmer.phone_number || "—",
     location:
       farmer.farmProfile?.location ||
+      farmer.farmProfile?.county ||
+      farmer.farmProfile?.address ||
       farmer.farmProfile?.farm_name ||
       "—",
     farmCount: farmer.farm_count ?? 0,

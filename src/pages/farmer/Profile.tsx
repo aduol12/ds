@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import Layout from '../../components/Layout';
-import { getUserProfile, updateUserProfile, updateFarmProfile, uploadProfilePicture } from '../../api/users';
+import {
+  changePassword,
+  getUserProfile,
+  updateUserProfile,
+  updateFarmProfile,
+  uploadProfilePicture,
+} from '../../api/users';
 import { User } from '../../types/api';
 import { useToasts } from '../../hooks/useToasts';
 
@@ -10,6 +15,12 @@ function EditProfile() {
   const [loading, setLoading] = useState(true);
   const [editingSection, setEditingSection] = useState<string | null>(null); // 'personal', 'farm', or 'picture'
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwords, setPasswords] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { addToast } = useToasts();
 
@@ -110,22 +121,56 @@ function EditProfile() {
     setSelectedFile(null);
   };
 
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswords((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSavePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwords.new_password.length < 8) {
+      addToast('New password must be at least 8 characters.', 'error');
+      return;
+    }
+    if (passwords.new_password !== passwords.confirm_password) {
+      addToast('New passwords do not match.', 'error');
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      await changePassword({
+        current_password: passwords.current_password,
+        new_password: passwords.new_password,
+      });
+      setPasswords({
+        current_password: '',
+        new_password: '',
+        confirm_password: '',
+      });
+      addToast('Password changed successfully.', 'success');
+    } catch (error) {
+      console.error(error);
+      addToast('Failed to change password. Check your current password.', 'error');
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   if (loading) {
-    return <Layout><div>Loading profile...</div></Layout>;
+    return <div>Loading profile...</div>;
   }
 
   if (!user) {
-    return <Layout><div>Could not load user profile. Please try again later.</div></Layout>;
+    return <div>Could not load user profile. Please try again later.</div>;
   }
 
   return (
-    <Layout>
-      <div className="max-w-4xl mx-auto space-y-6 p-4 mt-20">
+      <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Edit Profile</h1>
-            <p className="text-gray-600">Manage your personal information and farm details</p>
+            <p className="text-gray-600">Manage your personal information, farm details, and password</p>
           </div>
         </div>
 
@@ -347,9 +392,67 @@ function EditProfile() {
               </div>
             </div>
           </div>
+
+          {/* Change password */}
+          <form
+            onSubmit={handleSavePassword}
+            className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4"
+          >
+            <h2 className="text-lg font-semibold text-gray-900">Change password</h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Current password
+              </label>
+              <input
+                type="password"
+                name="current_password"
+                value={passwords.current_password}
+                onChange={handlePasswordChange}
+                required
+                autoComplete="current-password"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                New password
+              </label>
+              <input
+                type="password"
+                name="new_password"
+                value={passwords.new_password}
+                onChange={handlePasswordChange}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm new password
+              </label>
+              <input
+                type="password"
+                name="confirm_password"
+                value={passwords.confirm_password}
+                onChange={handlePasswordChange}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={savingPassword}
+              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-400"
+            >
+              {savingPassword ? 'Updating…' : 'Update password'}
+            </button>
+          </form>
         </div>
       </div>
-    </Layout>
   );
 }
 

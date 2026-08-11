@@ -34,6 +34,8 @@ import RolesPermissionsPage from "@/pages/super-admin/RolesPermissions";
 import AuditLogsPage from "@/pages/super-admin/AuditLogs";
 import IntegrationsPage from "@/pages/super-admin/Integrations";
 import SystemSettingsPage from "@/pages/super-admin/SystemSettings";
+import SuperAdminProfilePage from "@/pages/super-admin/Profile";
+import StaffProfilePage from "@/pages/staff/StaffProfile";
 import AgronomistDashboardPage from "@/pages/agronomist/Dashboard";
 import AgronomistFarmsPage from "@/pages/agronomist/Farms";
 import AgronomistMonitoringPage from "@/pages/agronomist/Monitoring";
@@ -73,7 +75,7 @@ export function AppRoutes() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
-        <Route element={<RoleGuard roles={["ADMIN"]} />}>
+        <Route element={<RoleGuard roles={["ADMIN", "SUPER_ADMIN"]} />}>
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
@@ -94,6 +96,7 @@ export function AppRoutes() {
             <Route path="/admin/reports" element={<AdminReportsPage />} />
             <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
             <Route path="/admin/settings" element={<AdminSettingsPage />} />
+            <Route path="/admin/profile" element={<StaffProfilePage />} />
           </Route>
         </Route>
 
@@ -102,6 +105,8 @@ export function AppRoutes() {
             <Route path="/super-admin" element={<SuperAdminDashboardPage />} />
             <Route path="/super-admin/dashboard" element={<SuperAdminDashboardPage />} />
             <Route path="/super-admin/users" element={<AdminUsersPage />} />
+            <Route path="/super-admin/farmers" element={<AdminFarmersPage />} />
+            <Route path="/super-admin/farmers/:farmerId" element={<AdminFarmerDetailsPage />} />
             <Route path="/super-admin/farms" element={<AdminFarmsPage />} />
             <Route path="/super-admin/devices" element={<AdminDevicesPage />} />
             <Route path="/super-admin/devices/:id" element={<AdminDeviceDetailPage />} />
@@ -120,6 +125,7 @@ export function AppRoutes() {
             <Route path="/super-admin/integrations" element={<IntegrationsPage />} />
             <Route path="/super-admin/system-settings" element={<SystemSettingsPage />} />
             <Route path="/super-admin/settings" element={<SystemSettingsPage />} />
+            <Route path="/super-admin/profile" element={<SuperAdminProfilePage />} />
           </Route>
         </Route>
 

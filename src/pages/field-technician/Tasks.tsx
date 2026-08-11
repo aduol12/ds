@@ -1,45 +1,74 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-type TaskStatus = "Assigned" | "In Progress" | "Completed";
+import {
+  listTasks,
+  updateTask,
+  type FieldTask,
+  type FieldTaskStatus,
+} from "@/api/tasks";
+import { useToasts } from "@/hooks/useToasts";
 
-type Task = {
-  id: string;
-  title: string;
-  farm: string;
-  priority: "High" | "Medium" | "Low";
-  dueDate: string;
-  status: TaskStatus;
-};
-
-const initialTasks: Task[] = [
-  { id: "T-201", title: "Install soil moisture sensor", farm: "North Valley Farm", priority: "High", dueDate: "2026-07-28", status: "Assigned" },
-  { id: "T-202", title: "Replace low-battery sensor", farm: "Riverbend Acres", priority: "High", dueDate: "2026-07-29", status: "Assigned" },
-  { id: "T-203", title: "Pump inspection", farm: "Green Ridge Plot", priority: "Medium", dueDate: "2026-07-30", status: "In Progress" },
-  { id: "T-204", title: "Valve controller repair", farm: "Green Ridge Plot", priority: "High", dueDate: "2026-07-25", status: "Completed" },
-];
-
-const columns: TaskStatus[] = ["Assigned", "In Progress", "Completed"];
+const columns: FieldTaskStatus[] = ["Assigned", "In Progress", "Completed"];
 
 export default function FieldTechnicianTasksPage() {
-  const [tasks, setTasks] = useState(initialTasks);
+  const { addToast } = useToasts();
+  const [tasks, setTasks] = useState<FieldTask[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const advance = (id: string) => {
-    setTasks((prev) =>
-      prev.map((task) => {
-        if (task.id !== id) return task;
-        if (task.status === "Assigned") return { ...task, status: "In Progress" };
-        if (task.status === "In Progress") return { ...task, status: "Completed" };
-        return task;
-      }),
-    );
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await listTasks();
+      setTasks(data.filter((t) => t.status !== "New" && t.status !== "Cancelled"));
+    } catch (err) {
+      console.error(err);
+      setTasks([]);
+      addToast("Failed to load your tasks.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const advance = async (task: FieldTask) => {
+    const nextStatus: FieldTaskStatus | null =
+      task.status === "Assigned"
+        ? "In Progress"
+        : task.status === "In Progress"
+          ? "Completed"
+          : null;
+    if (!nextStatus) return;
+    setUpdatingId(task.id);
+    try {
+      await updateTask(task.id, { status: nextStatus });
+      addToast(
+        nextStatus === "Completed" ? "Task completed." : "Task started.",
+        "success",
+      );
+      await load();
+    } catch (err) {
+      console.error(err);
+      addToast("Failed to update task.", "error");
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-semibold text-slate-900">My Tasks</h2>
-        <p className="mt-1 text-sm text-slate-500">Update the status of tasks assigned to you.</p>
+        <p className="mt-1 text-sm text-slate-500">
+          Update the status of tasks assigned to you. Changes are saved to the database.
+        </p>
       </div>
+
+      {loading && <p className="text-sm text-slate-500">Loading tasks…</p>}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {columns.map((column) => (
@@ -49,20 +78,35 @@ export default function FieldTechnicianTasksPage() {
               {tasks
                 .filter((task) => task.status === column)
                 .map((task) => (
-                  <div key={task.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div
+                    key={task.id}
+                    className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+                  >
                     <p className="text-sm font-semibold text-slate-900">{task.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">{task.farm} · Due {task.dueDate}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {task.farm_name || "No farm"} · Due {task.due_date || "—"}
+                    </p>
                     {task.status !== "Completed" && (
                       <button
                         type="button"
-                        onClick={() => advance(task.id)}
-                        className="mt-3 w-full rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-800"
+                        disabled={updatingId === task.id}
+                        onClick={() => void advance(task)}
+                        className="mt-3 w-full rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-800 disabled:opacity-60"
                       >
-                        {task.status === "Assigned" ? "Start Task" : "Mark Completed"}
+                        {updatingId === task.id
+                          ? "Updating…"
+                          : task.status === "Assigned"
+                            ? "Start Task"
+                            : "Mark Completed"}
                       </button>
                     )}
                   </div>
                 ))}
+              {!loading && tasks.filter((t) => t.status === column).length === 0 && (
+                <p className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-xs text-slate-400">
+                  No tasks
+                </p>
+              )}
             </div>
           </div>
         ))}

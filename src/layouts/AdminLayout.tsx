@@ -1,36 +1,23 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 
+import { StaffAlertsBell } from "@/components/StaffAlertsBell";
 import { useAuth, useAuthNavigation } from "@/contexts/AuthContext";
 
 const links = [
-  { to: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { to: '/admin/users', label: 'Users', icon: 'groups' },
-  { to: '/admin/farmers', label: 'Farmers', icon: 'diversity_3' },
-  { to: '/admin/farms', label: 'Farms', icon: 'agriculture' },
-  { to: '/admin/devices', label: 'Devices', icon: 'router' },
-  { to: '/admin/irrigation', label: 'Irrigation', icon: 'water_drop' },
-  { to: '/admin/monitoring', label: 'Monitoring', icon: 'monitoring' },
-  { to: '/admin/alerts', label: 'Alerts', icon: 'notifications_active' },
-  { to: '/admin/field-operations', label: 'Field Operations', icon: 'construction' },
-  { to: '/admin/reports', label: 'Reports', icon: 'description' },
-  { to: '/admin/analytics', label: 'Analytics', icon: 'analytics' },
-  { to: '/admin/settings', label: 'Settings', icon: 'settings' },
+  { to: "/admin/dashboard", label: "Dashboard", icon: "dashboard" },
+  { to: "/admin/profile", label: "My Profile", icon: "person" },
+  { to: "/admin/users", label: "Users", icon: "groups" },
+  { to: "/admin/farmers", label: "Farmers", icon: "diversity_3" },
+  { to: "/admin/farms", label: "Farms", icon: "agriculture" },
+  { to: "/admin/devices", label: "Devices", icon: "router" },
+  { to: "/admin/irrigation", label: "Irrigation", icon: "water_drop" },
+  { to: "/admin/monitoring", label: "Monitoring", icon: "monitoring" },
+  { to: "/admin/alerts", label: "Alerts", icon: "notifications_active" },
+  { to: "/admin/field-operations", label: "Field Operations", icon: "construction" },
+  { to: "/admin/reports", label: "Reports", icon: "description" },
+  { to: "/admin/analytics", label: "Analytics", icon: "analytics" },
+  { to: "/admin/settings", label: "Settings", icon: "settings" },
 ];
-
-const iconMap: Record<string, string> = {
-  dashboard: 'dashboard',
-  groups: 'groups',
-  diversity_3: 'diversity_3',
-  agriculture: 'agriculture',
-  router: 'router',
-  water_drop: 'water_drop',
-  monitoring: 'monitoring',
-  notifications_active: 'notifications_active',
-  construction: 'construction',
-  description: 'description',
-  analytics: 'analytics',
-  settings: 'settings',
-};
 
 export function AdminLayout() {
   const { user } = useAuth();
@@ -59,12 +46,12 @@ export function AdminLayout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                   isActive
-                    ? 'bg-emerald-100 text-emerald-700'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`
               }
             >
-              <span className="material-symbols-outlined text-base">{iconMap[link.icon]}</span>
+              <span className="material-symbols-outlined text-base">{link.icon}</span>
               <span>{link.label}</span>
             </NavLink>
           ))}
@@ -72,9 +59,13 @@ export function AdminLayout() {
 
         <div className="border-t border-slate-200 p-4">
           <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white">
+            <Link
+              to="/admin/profile"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-700"
+              title="My profile"
+            >
               {initials}
-            </div>
+            </Link>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-slate-800">
                 {user?.name ?? "Admin User"}
@@ -103,19 +94,14 @@ export function AdminLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 lg:flex">
-              <span className="relative flex h-2 w-2">
-                <span className="status-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-600 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-600" />
-              </span>
-              <span className="text-xs font-semibold text-emerald-800">All Systems Nominal</span>
-            </div>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100">
-              <span className="material-symbols-outlined">help</span>
-            </button>
+            <StaffAlertsBell alertsPath="/admin/alerts" />
+            <Link
+              to="/admin/profile"
+              title="My profile"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              {initials}
+            </Link>
           </div>
         </header>
 

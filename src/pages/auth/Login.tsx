@@ -9,43 +9,15 @@ import {
 import { useToasts } from "@/hooks/useToasts";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import { SessionExpiredError } from "@/utils/ApiError";
-import type { Role } from "@/types/auth";
-
-type PortalOption = {
-  role: Role;
-  label: string;
-  description: string;
-};
-
-const PORTALS: PortalOption[] = [
-  {
-    role: "FARMER",
-    label: "Farmer",
-    description: "Farms, irrigation & advisories",
-  },
-  {
-    role: "ADMIN",
-    label: "Admin",
-    description: "Users, devices & monitoring",
-  },
-  {
-    role: "SUPER_ADMIN",
-    label: "Super Admin",
-    description: "Orgs, billing & system settings",
-  },
-];
 
 function Login() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [selectedPortal, setSelectedPortal] = useState<Role>("ADMIN");
   const { login } = useAuth();
   const { redirectToRoleHome } = useAuthNavigation();
   const { addToast } = useToasts();
   const { isInstallable, isIOS, handleInstall } = useInstallPrompt();
-  const roleSwitcherEnabled =
-    import.meta.env.VITE_ENABLE_ROLE_SWITCHER === "true";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,18 +27,6 @@ function Login() {
         phone_number: phoneNumber,
         password,
       });
-
-      if (user.role !== selectedPortal) {
-        addToast(
-          `Signed in as ${user.role.replaceAll("_", " ")}. Opening that portal.` +
-            (roleSwitcherEnabled
-              ? " Use Preview portal (bottom-left) to open Farmer or Super Admin."
-              : ""),
-          "info",
-          7000,
-        );
-      }
-
       redirectToRoleHome(user.role);
     } catch (error) {
       if (error instanceof SessionExpiredError) {
@@ -94,7 +54,7 @@ function Login() {
         {isInstallable && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
             <div className="flex items-center space-x-3">
-              <svg className="h-6 w-6 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-6 w-6 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
               <div>
@@ -124,41 +84,6 @@ function Login() {
         )}
 
         <form className="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-lg" onSubmit={handleSubmit}>
-          <div>
-            <p className="mb-2 text-sm font-medium text-gray-700">Portal</p>
-            <div className="grid grid-cols-3 gap-2">
-              {PORTALS.map((portal) => (
-                <button
-                  key={portal.role}
-                  type="button"
-                  onClick={() => setSelectedPortal(portal.role)}
-                  className={`rounded-lg border px-2 py-2.5 text-left transition ${
-                    selectedPortal === portal.role
-                      ? "border-green-600 bg-green-50"
-                      : "border-gray-200 hover:border-green-300"
-                  }`}
-                >
-                  <span
-                    className={`block text-xs font-semibold ${
-                      selectedPortal === portal.role ? "text-green-800" : "text-gray-800"
-                    }`}
-                  >
-                    {portal.label}
-                  </span>
-                  <span className="mt-0.5 block text-[10px] leading-snug text-gray-500">
-                    {portal.description}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-gray-500">
-              You&apos;ll open the portal that matches your account role.
-              {roleSwitcherEnabled
-                ? " After sign-in, use Preview portal (bottom-left) to try Farmer or Super Admin."
-                : ""}
-            </p>
-          </div>
-
           <div className="space-y-4">
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
@@ -170,10 +95,13 @@ function Login() {
                 type="tel"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm"
-                placeholder="Enter your phone number"
+                placeholder="0712 345 678"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Same phone number you used when registering
+              </p>
             </div>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -198,9 +126,7 @@ function Login() {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors disabled:bg-gray-400"
             >
-              {loading
-                ? "Signing in..."
-                : `Sign in to ${PORTALS.find((p) => p.role === selectedPortal)?.label ?? "Portal"}`}
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </div>
 

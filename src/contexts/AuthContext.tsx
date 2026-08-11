@@ -28,14 +28,9 @@ interface AuthContextValue {
   login: (credentials: LoginCredentials) => Promise<AuthUser>;
   logout: () => Promise<void>;
   hasPermission: (action: PermissionKey) => boolean;
-  /** Role preview when VITE_ENABLE_ROLE_SWITCHER is true */
-  switchRole?: (role: Role) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-const enableRoleSwitcher =
-  import.meta.env.VITE_ENABLE_ROLE_SWITCHER === "true";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -78,18 +73,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return authenticatedUser;
   }, []);
 
-  const switchRole = useCallback((role: Role) => {
-    setUser((prev) =>
-      prev
-        ? { ...prev, role }
-        : {
-            id: "dev-user",
-            name: "Demo User",
-            role,
-          },
-    );
-  }, []);
-
   const hasPermission = useCallback(
     (action: PermissionKey) => {
       if (!user) return false;
@@ -106,9 +89,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       hasPermission,
-      ...(enableRoleSwitcher ? { switchRole } : {}),
     }),
-    [user, isLoading, login, logout, hasPermission, switchRole],
+    [user, isLoading, login, logout, hasPermission],
   );
 
   return (
@@ -145,8 +127,11 @@ export function getAuthErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as Record<string, unknown> | undefined;
     const detail = data?.detail;
+    const rawMessage = data?.message;
     const apiMessage =
-      (typeof data?.message === "string" && data.message) ||
+      (typeof rawMessage === "string" && rawMessage) ||
+      (Array.isArray(rawMessage) &&
+        rawMessage.map((item) => String(item)).join(", ")) ||
       (typeof data?.error === "string" && data.error) ||
       (typeof detail === "string" && detail) ||
       (Array.isArray(detail) &&

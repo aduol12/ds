@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { getKitById, updateKit } from '../../api/assets';
+import { sendControlCommand } from '../../api/control';
 import { getLatestSensorData, getHistoricalSensorData } from '../../api/data';
 import { Kit, SensorReading } from '../../types/api';
 import Loader from '../../components/Loader';
+import { useToasts } from '../../hooks/useToasts';
 
 function DeviceDetail() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const { addToast } = useToasts();
   const basePath = location.pathname.startsWith('/super-admin') ? '/super-admin' : '/admin';
   const [device, setDevice] = useState<Kit | null>(null);
+  const [irrigationLoading, setIrrigationLoading] = useState(false);
   const [editableDevice, setEditableDevice] = useState<Kit | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -160,9 +164,25 @@ function DeviceDetail() {
     setShowIrrigationModal(true);
   };
 
-  const confirmIrrigationAction = () => {
-    setIrrigationActive(irrigationAction === 'start');
-    setShowIrrigationModal(false);
+  const confirmIrrigationAction = async () => {
+    if (!id) return;
+    setIrrigationLoading(true);
+    try {
+      const isIrrigating = irrigationAction === 'start';
+      await sendControlCommand(id, isIrrigating);
+      setIrrigationActive(isIrrigating);
+      setDevice((prev) => (prev ? { ...prev, is_irrigating: isIrrigating } : prev));
+      setShowIrrigationModal(false);
+      addToast(
+        isIrrigating ? 'Irrigation started.' : 'Irrigation stopped.',
+        'success',
+      );
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to send irrigation command.', 'error');
+    } finally {
+      setIrrigationLoading(false);
+    }
   };
 
   if (loading) {
@@ -728,14 +748,20 @@ function DeviceDetail() {
                   Cancel
                 </button>
                 <button
-                  onClick={confirmIrrigationAction}
-                  className={`flex-1 px-4 py-2 rounded-lg transition-colors text-white ${
+                  type="button"
+                  disabled={irrigationLoading}
+                  onClick={() => void confirmIrrigationAction()}
+                  className={`flex-1 px-4 py-2 rounded-lg transition-colors text-white disabled:opacity-60 ${
                     irrigationAction === 'start' 
                       ? 'bg-blue-600 hover:bg-blue-700' 
                       : 'bg-red-600 hover:bg-red-700'
                   }`}
                 >
-                  {irrigationAction === 'start' ? 'Start Watering' : 'Stop Watering'}
+                  {irrigationLoading
+                    ? 'Sending…'
+                    : irrigationAction === 'start'
+                      ? 'Start Watering'
+                      : 'Stop Watering'}
                 </button>
               </div>
             </div>

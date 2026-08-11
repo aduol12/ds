@@ -1,16 +1,21 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet } from "react-router-dom";
 
+import { StaffAlertsBell } from "@/components/StaffAlertsBell";
 import { useAuth, useAuthNavigation } from "@/contexts/AuthContext";
 
 const navGroups = [
   {
     label: "Overview",
-    links: [{ to: "/super-admin/dashboard", label: "Dashboard", icon: "dashboard" }],
+    links: [
+      { to: "/super-admin/dashboard", label: "Dashboard", icon: "dashboard" },
+      { to: "/super-admin/profile", label: "My Profile", icon: "person" },
+    ],
   },
   {
     label: "Operations",
     links: [
       { to: "/super-admin/users", label: "Users", icon: "groups" },
+      { to: "/super-admin/farmers", label: "Farmers", icon: "diversity_3" },
       { to: "/super-admin/farms", label: "Farms", icon: "agriculture" },
       { to: "/super-admin/devices", label: "Devices", icon: "router" },
       { to: "/super-admin/irrigation", label: "Irrigation", icon: "water_drop" },
@@ -51,7 +56,7 @@ export function SuperAdminLayout() {
 
   return (
     <div className="min-h-screen bg-[#f7f9fc] text-slate-800">
-      <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col border-r border-slate-200 bg-[#eceef1] py-6 px-3 z-50">
+      <aside className="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-slate-200 bg-[#eceef1] px-3 py-6">
         <div className="mb-6 px-3">
           <h1 className="text-xl font-extrabold text-emerald-800">DroughtSmart</h1>
           <p className="text-xs font-medium tracking-wide text-slate-500">Enterprise Admin</p>
@@ -88,12 +93,6 @@ export function SuperAdminLayout() {
         <div className="mt-4 space-y-1 border-t border-slate-300/60 pt-4">
           <button
             type="button"
-            className="mb-3 w-full rounded-xl bg-emerald-700 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 active:scale-95"
-          >
-            + Add Organization
-          </button>
-          <button
-            type="button"
             onClick={() => void logoutAndRedirect()}
             className="flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white/70"
           >
@@ -114,23 +113,14 @@ export function SuperAdminLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 lg:flex">
-              <span className="relative flex h-2 w-2">
-                <span className="status-pulse absolute inline-flex h-full w-full rounded-full bg-emerald-600 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-600" />
-              </span>
-              <span className="text-xs font-semibold text-emerald-800">All Systems Nominal</span>
-            </div>
-            <button className="relative p-2 text-slate-500 transition hover:text-emerald-700">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500" />
-            </button>
-            <button className="p-2 text-slate-500 transition hover:text-emerald-700">
-              <span className="material-symbols-outlined">help</span>
-            </button>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-emerald-700 text-sm font-semibold text-white">
+            <StaffAlertsBell alertsPath="/super-admin/alerts" />
+            <Link
+              to="/super-admin/profile"
+              title="My profile"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-emerald-700 text-sm font-semibold text-white hover:bg-emerald-800"
+            >
               {initials}
-            </div>
+            </Link>
           </div>
         </header>
 
@@ -141,5 +131,3 @@ export function SuperAdminLayout() {
     </div>
   );
 }
-
-

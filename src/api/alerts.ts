@@ -1,5 +1,14 @@
 import { client } from './client';
 
+function asArray<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === "object") {
+    const data = (payload as { data?: unknown }).data;
+    if (Array.isArray(data)) return data;
+  }
+  return [];
+}
+
 export const createAlert = async (data: any) => {
   const response = await client.post('/api/alerts', data);
   return response.data;
@@ -7,7 +16,7 @@ export const createAlert = async (data: any) => {
 
 export const getAllAlerts = async () => {
   const response = await client.get('/api/alerts');
-  return response.data;
+  return asArray<Record<string, unknown>>(response.data);
 };
 
 export const getAlertById = async (alertId: string) => {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import SensorReading from '../../components/SensorReading';
 import NoDevices from '../../components/NoDevices';
 import Loader from '../../components/Loader';
-import { getAllKits } from '../../api/assets';
+import { createKit, getAllKits } from '../../api/assets';
 import { getLatestSensorData } from '../../api/data';
 import { DeviceSummary, Kit } from '../../types/api';
 import { useToasts } from '../../hooks/useToasts';
@@ -35,11 +35,19 @@ function LiveData() {
 
   const handleAddDevice = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Attempting to add device with data:', newDevice);
     try {
-      // This functionality is not available on this page, so we'll just log it.
-      console.log('Device creation is not implemented on the LiveData page.');
-      addToast('Device creation is not available here.', 'info');
+      const createdKit = await createKit(newDevice);
+      setDevices((prev) => [...prev, normalizeDeviceSummary(createdKit, null)]);
+      setShowAddDevice(false);
+      setNewDevice({
+        location_name: '',
+        crop_type: '',
+        latitude: 0,
+        longitude: 0,
+        reading_interval_active_min: 5,
+        reading_interval_idle_min: 30,
+      });
+      addToast('Device added successfully!', 'success');
     } catch (err) {
       console.error('Failed to add device:', err);
       addToast('Failed to add device.', 'error');

@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { updateKit, updateKitConfiguration } from '../api/assets';
+import { useToasts } from '../hooks/useToasts';
 import { DeviceSummary } from '../types/api';
 
 interface DeviceCardProps {
@@ -8,10 +10,13 @@ interface DeviceCardProps {
 
 function DeviceCard({ device }: DeviceCardProps) {
   const location = useLocation();
+  const { addToast } = useToasts();
   const basePath = location.pathname.startsWith('/super-admin') ? '/super-admin' : '/admin';
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showIrrigationModal, setShowIrrigationModal] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
   const [irrigationMode, setIrrigationMode] = useState<'manual' | 'sensor' | 'smart'>('sensor');
+  const kitId = device.kit_kit_id || device.kit_id || '';
   const [manualSchedule, setManualSchedule] = useState([
     { day: 'monday', enabled: false, times: ['06:00'] },
     { day: 'tuesday', enabled: false, times: ['06:00'] },
@@ -35,6 +40,49 @@ function DeviceCard({ device }: DeviceCardProps) {
   };
 
   const status = getStatus(device);
+
+  const handleSaveConfig = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!kitId) {
+      addToast('Missing device id.', 'error');
+      return;
+    }
+    const form = new FormData(e.currentTarget);
+    const locationName = String(form.get('location_name') || '').trim();
+    const cropType = String(form.get('crop_type') || '').trim();
+    const latitude = Number(form.get('latitude'));
+    const longitude = Number(form.get('longitude'));
+    const readingActive = Number(form.get('reading_interval_active_min'));
+    const readingIdle = Number(form.get('reading_interval_idle_min'));
+    const lowMoisture = Number(form.get('low_moisture_threshold_pct'));
+
+    setSavingConfig(true);
+    try {
+      await updateKit(kitId, {
+        location_name: locationName || device.kit_location_name,
+        crop_type: cropType || device.kit_crop_type,
+        latitude: Number.isFinite(latitude) ? latitude : Number(device.kit_latitude),
+        longitude: Number.isFinite(longitude) ? longitude : Number(device.kit_longitude),
+      });
+      await updateKitConfiguration(kitId, {
+        reading_interval_active_min: Number.isFinite(readingActive) ? readingActive : undefined,
+        reading_interval_idle_min: Number.isFinite(readingIdle) ? readingIdle : undefined,
+        low_moisture_threshold_pct: Number.isFinite(lowMoisture) ? lowMoisture : undefined,
+        notifications_enabled: {
+          low_moisture: form.get('lowMoistureAlert') === 'on',
+          device_offline: form.get('deviceOfflineAlert') === 'on',
+          low_battery: form.get('lowBatteryAlert') === 'on',
+        },
+      });
+      addToast('Configuration saved.', 'success');
+      setShowConfigModal(false);
+    } catch (err) {
+      console.error(err);
+      addToast('Failed to save configuration.', 'error');
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
   const getBatteryColor = (level: number | null | undefined) => {
     if (level === null || level === undefined) return 'text-slate-400';
@@ -207,24 +255,16 @@ function DeviceCard({ device }: DeviceCardProps) {
               </button>
             </div>
             
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={handleSaveConfig}>
               {/* Device Information */}
               <div className="space-y-4">
                 <h4 className="text-md font-medium text-gray-900 border-b border-gray-200 pb-2">Device Information</h4>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Device Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Device / Location Name</label>
                   <input
                     type="text"
-                    defaultValue={device.kit_location_name}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <input
-                    type="text"
+                    name="location_name"
                     defaultValue={device.kit_location_name}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
@@ -235,6 +275,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
                     <input
                       type="number"
+                      name="latitude"
                       step="0.000001"
                       defaultValue={device.kit_latitude || ''}
                       placeholder="e.g., 40.7128"
@@ -246,6 +287,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
                     <input
                       type="number"
+                      name="longitude"
                       step="0.000001"
                       defaultValue={device.kit_longitude || ''}
                       placeholder="e.g., -74.0060"
@@ -257,7 +299,8 @@ function DeviceCard({ device }: DeviceCardProps) {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Crop Type</label>
                   <select 
-                    defaultValue={device.kit_crop_type.toLowerCase()}
+                    name="crop_type"
+                    defaultValue={(device.kit_crop_type || 'other').toLowerCase()}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="corn">Corn</option>
@@ -279,9 +322,13 @@ function DeviceCard({ device }: DeviceCardProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reading Interval (Active)</label>
-                    <select className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <select
+                      name="reading_interval_active_min"
+                      defaultValue={String(device.config_reading_interval_active_min || 5)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
                       <option value="1">1 minute</option>
-                      <option value="5" selected>5 minutes</option>
+                      <option value="5">5 minutes</option>
                       <option value="10">10 minutes</option>
                       <option value="15">15 minutes</option>
                     </select>
@@ -289,35 +336,29 @@ function DeviceCard({ device }: DeviceCardProps) {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reading Interval (Idle)</label>
-                    <select className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <select
+                      name="reading_interval_idle_min"
+                      defaultValue={String(device.config_reading_interval_idle_min || 30)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
                       <option value="15">15 minutes</option>
-                      <option value="30" selected>30 minutes</option>
+                      <option value="30">30 minutes</option>
                       <option value="60">1 hour</option>
                       <option value="120">2 hours</option>
                     </select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Low Moisture Threshold (%)</label>
-                    <input
-                      type="number"
-                      defaultValue="30"
-                      min="0"
-                      max="100"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Optimal Moisture Range (%)</label>
-                    <input
-                      type="text"
-                      defaultValue="40-60"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Low Moisture Threshold (%)</label>
+                  <input
+                    type="number"
+                    name="low_moisture_threshold_pct"
+                    defaultValue={device.config_low_moisture_threshold_pct || 30}
+                    min="0"
+                    max="100"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
                 </div>
               </div>
 
@@ -330,6 +371,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                     <input
                       type="checkbox"
                       id="lowMoistureAlert"
+                      name="lowMoistureAlert"
                       defaultChecked
                       className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                     />
@@ -342,6 +384,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                     <input
                       type="checkbox"
                       id="deviceOfflineAlert"
+                      name="deviceOfflineAlert"
                       defaultChecked
                       className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                     />
@@ -354,6 +397,7 @@ function DeviceCard({ device }: DeviceCardProps) {
                     <input
                       type="checkbox"
                       id="lowBatteryAlert"
+                      name="lowBatteryAlert"
                       defaultChecked
                       className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                     />
@@ -374,9 +418,10 @@ function DeviceCard({ device }: DeviceCardProps) {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  disabled={savingConfig}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60"
                 >
-                  Save Configuration
+                  {savingConfig ? 'Saving…' : 'Save Configuration'}
                 </button>
               </div>
             </form>

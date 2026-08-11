@@ -10,6 +10,14 @@ export const updateUserProfile = async (data: any) => {
   return response.data;
 };
 
+export const changePassword = async (data: {
+  current_password: string;
+  new_password: string;
+}) => {
+  const response = await client.post('/users/me/change-password', data);
+  return response.data;
+};
+
 export const updateFarmProfile = async (data: any) => {
   const response = await client.put('/users/me/farm-profile', data);
   return response.data;

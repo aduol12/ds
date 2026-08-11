@@ -1,6 +1,12 @@
 import axios from "axios";
 
-import { client, getToken, setToken, clearToken } from "./client";
+import {
+  client,
+  getToken,
+  getRefreshToken,
+  setSessionTokens,
+  clearToken,
+} from "./client";
 import type {
   AuthUser,
   LoginCredentials,
@@ -13,6 +19,7 @@ import {
   normalizeRole,
   roleFromAccessToken,
 } from "@/utils/auth";
+import { normalizePhoneNumber } from "@/utils/phone";
 
 function mapProfileToAuthUser(
   profile: Record<string, unknown>,
@@ -45,17 +52,24 @@ function mapProfileToAuthUser(
   };
 }
 
-export async function login(
-  credentials: LoginCredentials,
-): Promise<AuthUser> {
-  const response = await client.post<LoginResponse>("/auth/login", credentials);
-  const token = accessTokenFromResponse(response.data);
-
+function persistTokensFromResponse(data: LoginResponse): string {
+  const token = accessTokenFromResponse(data);
   if (!token) {
     throw new Error("Login response did not include an access token");
   }
+  const refresh = data.refresh_token ?? data.refreshToken ?? null;
+  setSessionTokens(token, refresh);
+  return token;
+}
 
-  setToken(token);
+export async function login(
+  credentials: LoginCredentials,
+): Promise<AuthUser> {
+  const response = await client.post<LoginResponse>("/auth/login", {
+    phone_number: normalizePhoneNumber(credentials.phone_number),
+    password: credentials.password,
+  });
+  const token = persistTokensFromResponse(response.data);
 
   if (response.data.user) {
     return mapProfileToAuthUser(
@@ -69,7 +83,11 @@ export async function login(
 }
 
 export async function register(body: RegisterRequest): Promise<unknown> {
-  const response = await client.post("/users/register", body);
+  const response = await client.post("/users/register", {
+    ...body,
+    email: body.email.trim().toLowerCase(),
+    phone_number: normalizePhoneNumber(body.phone_number),
+  });
   return response.data;
 }
 
@@ -85,16 +103,20 @@ export async function getCurrentUser(): Promise<AuthUser> {
 
 export async function restoreSession(): Promise<AuthUser | null> {
   const token = getToken();
-  if (!token) {
+  const refresh = getRefreshToken();
+  if (!token && !refresh) {
     return null;
   }
 
   try {
     const profile = await fetchCurrentUserProfile();
-    return mapProfileToAuthUser(profile, token);
+    return mapProfileToAuthUser(profile, getToken());
   } catch (error) {
-    // Clear any invalid token and return null
-    // User will be redirected to login page
+    // 401 interceptor already attempts refresh; if we still fail, clear.
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      clearToken();
+      return null;
+    }
     clearToken();
     return null;
   }
@@ -105,8 +127,9 @@ export function clearSession(): void {
 }
 
 export async function logoutRequest(): Promise<void> {
+  const refresh = getRefreshToken();
   try {
-    await client.post("/auth/logout");
+    await client.post("/auth/logout", refresh ? { refresh_token: refresh } : {});
   } catch {
     // Best-effort server logout; client session is cleared regardless.
   } finally {

@@ -20,7 +20,6 @@ export { Header } from './Header';
 export { Layout } from './Layout';
 export { Loader } from './Loader';
 export { NoDevices } from './NoDevices';
-export { RoleSwitcher } from './RoleSwitcher';
 export { SensorChart } from './SensorChart';
 export { SensorReading } from './SensorReading';
 export { Sidebar } from './Sidebar';
