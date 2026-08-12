@@ -10,11 +10,11 @@ export class KitConfiguration {
   @Column({ type: 'enum', enum: ['Manual', 'Sensor', 'SmartWeather'], nullable: true })
   active_mode: string;
 
-  @Column({ nullable: true })
-  reading_interval_active_min: number;
+  @Column({ type: 'int', nullable: true })
+  reading_interval_active_min: number | null;
 
-  @Column({ nullable: true })
-  reading_interval_idle_min: number;
+  @Column({ type: 'int', nullable: true })
+  reading_interval_idle_min: number | null;
 
   @Column('decimal', { nullable: true })
   low_moisture_threshold_pct: number;

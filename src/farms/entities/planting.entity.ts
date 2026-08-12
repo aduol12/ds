@@ -23,7 +23,7 @@ export class Planting {
   @JoinColumn({ name: 'farm_id' })
   farm: Farm;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   field_id: string | null;
 
   @ManyToOne(() => Field, { nullable: true, onDelete: 'SET NULL' })

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,6 +10,7 @@ import { IrrigationZone } from './entities/irrigation-zone.entity';
 import { IrrigationEvent } from './entities/irrigation-event.entity';
 import { IrrigationSchedule } from './entities/irrigation-schedule.entity';
 import { Farm } from '../farms/entities/farm.entity';
+import { IotKit } from '../assets/entities/iot-kit.entity';
 import {
   CreateIrrigationEventDto,
   CreateIrrigationScheduleDto,
@@ -18,9 +20,12 @@ import {
 } from './dto/irrigation.dto';
 import { isStaffRole } from '../common/rbac';
 import { Role } from '../users/enums/role.enum';
+import { MqttService } from '../mqtt/mqtt.service';
 
 @Injectable()
 export class IrrigationService {
+  private readonly logger = new Logger(IrrigationService.name);
+
   constructor(
     @InjectRepository(IrrigationZone)
     private readonly zonesRepo: Repository<IrrigationZone>,
@@ -30,6 +35,9 @@ export class IrrigationService {
     private readonly schedulesRepo: Repository<IrrigationSchedule>,
     @InjectRepository(Farm)
     private readonly farmsRepo: Repository<Farm>,
+    @InjectRepository(IotKit)
+    private readonly kitsRepo: Repository<IotKit>,
+    private readonly mqttService: MqttService,
   ) {}
 
   private async assertFarmAccess(farmId: string, userId: string, role: Role) {
@@ -39,6 +47,23 @@ export class IrrigationService {
       throw new ForbiddenException('Not allowed to access this farm');
     }
     return farm;
+  }
+
+  private async syncKitIrrigation(
+    kitId: string | null,
+    isIrrigating: boolean,
+  ): Promise<void> {
+    if (!kitId) return;
+    const kit = await this.kitsRepo.findOneBy({ kit_id: kitId });
+    if (!kit) {
+      this.logger.warn(`Zone kit ${kitId} not found; skipping MQTT sync`);
+      return;
+    }
+    kit.is_irrigating = isIrrigating;
+    await this.kitsRepo.save(kit);
+    await this.mqttService.publish(`control/${kitId}`, {
+      is_irrigating: isIrrigating,
+    });
   }
 
   async listZones(userId: string, role: Role, farmId?: string) {
@@ -100,17 +125,35 @@ export class IrrigationService {
     return this.zonesRepo.save(zone);
   }
 
-  async setZoneActive(zoneId: string, userId: string, role: Role, active: boolean) {
+  async setZoneActive(
+    zoneId: string,
+    userId: string,
+    role: Role,
+    active: boolean,
+    triggerType: string = 'api',
+  ) {
     const zone = await this.zonesRepo.findOneBy({ id: zoneId });
     if (!zone) throw new NotFoundException('Irrigation zone not found');
     await this.assertFarmAccess(zone.farm_id, userId, role);
+    return this.applyZoneActive(zone, active, triggerType);
+  }
+
+  /** System/cron path — no user RBAC (schedules already authorized at create). */
+  async applyZoneActive(
+    zone: IrrigationZone,
+    active: boolean,
+    triggerType: string,
+    durationMinutes?: number | null,
+  ) {
     zone.is_active = active;
     await this.zonesRepo.save(zone);
+    await this.syncKitIrrigation(zone.kit_id, active);
     await this.eventsRepo.save(
       this.eventsRepo.create({
-        zone_id: zoneId,
+        zone_id: zone.id,
         event_type: active ? 'start' : 'stop',
-        trigger_type: 'api',
+        trigger_type: triggerType,
+        duration_minutes: durationMinutes ?? null,
         event_time: new Date(),
       }),
     );
@@ -224,5 +267,90 @@ export class IrrigationService {
       event_count: parseInt(raw?.event_count || '0', 10) || 0,
       farm_id: farmId || null,
     };
+  }
+
+  /** Called by cron every minute to start due schedules and stop expired runs. */
+  async runDueSchedules(now: Date = new Date()): Promise<number> {
+    const weekday = String(now.getDay()); // 0-6
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const currentTime = `${hh}:${mm}`;
+
+    const schedules = await this.schedulesRepo.find({
+      where: { is_enabled: true },
+      relations: ['zone'],
+    });
+
+    let triggered = 0;
+    for (const schedule of schedules) {
+      const zone = schedule.zone;
+      if (!zone) continue;
+
+      const days = (schedule.days_of_week || '')
+        .split(',')
+        .map((d) => d.trim())
+        .filter(Boolean);
+      if (days.length > 0 && !days.includes(weekday)) continue;
+
+      const normalizedStart = this.normalizeTime(schedule.start_time);
+      if (normalizedStart !== currentTime) continue;
+
+      if (
+        schedule.last_triggered_at &&
+        this.isSameMinute(schedule.last_triggered_at, now)
+      ) {
+        continue;
+      }
+
+      await this.applyZoneActive(
+        zone,
+        true,
+        'schedule',
+        schedule.duration_minutes,
+      );
+      schedule.last_triggered_at = now;
+      await this.schedulesRepo.save(schedule);
+      triggered += 1;
+
+      const zoneId = zone.id;
+      const durationMinutes = schedule.duration_minutes || 30;
+      const durationMs = durationMinutes * 60 * 1000;
+      setTimeout(() => {
+        void this.zonesRepo
+          .findOneBy({ id: zoneId })
+          .then((fresh) => {
+            if (!fresh || !fresh.is_active) return;
+            return this.applyZoneActive(
+              fresh,
+              false,
+              'schedule',
+              durationMinutes,
+            );
+          })
+          .catch((err) =>
+            this.logger.error(
+              `Failed to auto-stop zone ${zoneId}: ${err?.message || err}`,
+            ),
+          );
+      }, durationMs);
+    }
+
+    return triggered;
+  }
+
+  private normalizeTime(value: string): string {
+    const match = /^(\d{1,2}):(\d{2})$/.exec((value || '').trim());
+    if (!match) return value;
+    return `${match[1].padStart(2, '0')}:${match[2]}`;
+  }
+
+  private isSameMinute(a: Date, b: Date): boolean {
+    return (
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate() &&
+      a.getHours() === b.getHours() &&
+      a.getMinutes() === b.getMinutes()
+    );
   }
 }

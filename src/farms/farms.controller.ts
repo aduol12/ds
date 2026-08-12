@@ -32,7 +32,7 @@ export class FarmsController {
 
   @Post()
   create(@Request() req, @Body() dto: CreateFarmDto) {
-    return this.farmsService.create(req.user.user_id, dto);
+    return this.farmsService.create(req.user.user_id, req.user.role, dto);
   }
 
   @Get()

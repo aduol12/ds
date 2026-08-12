@@ -13,11 +13,16 @@ export class ConfigController {
 
   @Get(':kitId')
   findOne(@Param('kitId') kitId: string, @Request() req) {
-    return this.configService.findOne(kitId, req.user.user_id);
+    return this.configService.findOne(kitId, req.user.user_id, req.user.role);
   }
 
   @Put(':kitId')
   update(@Param('kitId') kitId: string, @Body() updateConfigDto: UpdateConfigDto, @Request() req) {
-    return this.configService.update(kitId, updateConfigDto, req.user.user_id);
+    return this.configService.update(
+      kitId,
+      updateConfigDto,
+      req.user.user_id,
+      req.user.role,
+    );
   }
 }

@@ -25,7 +25,7 @@ export class IrrigationEvent {
   @Column()
   event_type: string; // start | stop | error
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   trigger_type: string | null; // manual | schedule | sensor | api
 
   @Column({ type: 'int', nullable: true })

@@ -13,6 +13,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateFarmProfileDto } from './dto/update-farm-profile.dto';
 import { UpdateUserSettingsDto } from './dto/update-user-settings.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
@@ -21,6 +22,7 @@ import { Roles } from './decorators/roles.decorator';
 import { Role } from './enums/role.enum';
 import { RolesGuard } from './guards/roles.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { User } from './entities/user.entity';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -54,6 +56,17 @@ export class UsersController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Post('me/change-password')
+  changePassword(@GetUser() user: User, @Body() dto: ChangePasswordDto) {
+    return this.usersService.changePassword(
+      user.user_id,
+      dto.current_password,
+      dto.new_password,
+    );
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Put('me/farm-profile')
   updateMyFarmProfile(
     @GetUser() user: User,
@@ -75,7 +88,12 @@ export class UsersController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Post('me/profile-picture')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'A new profile picture for the user',
@@ -116,24 +134,28 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @Put('admin/:id/role')
-  updateUserRole(@Param('id') id: string, @Body() dto: UpdateUserRoleDto) {
-    return this.usersService.updateUserRole(id, dto);
+  updateUserRole(
+    @GetUser() actor: User,
+    @Param('id') id: string,
+    @Body() dto: UpdateUserRoleDto,
+  ) {
+    return this.usersService.updateUserRole(actor, id, dto);
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @Delete('admin/:id')
-  softDeleteUser(@Param('id') id: string) {
-    return this.usersService.softDeleteUser(id);
+  softDeleteUser(@GetUser() actor: User, @Param('id') id: string) {
+    return this.usersService.softDeleteUser(actor, id);
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPER_ADMIN)
   @Delete('admin/:id/permanent')
-  hardDeleteUser(@Param('id') id: string) {
-    return this.usersService.hardDeleteUser(id);
+  hardDeleteUser(@GetUser() actor: User, @Param('id') id: string) {
+    return this.usersService.hardDeleteUser(actor, id);
   }
 
   /** @deprecated Use GET /users/admin/all — kept authenticated for safety */

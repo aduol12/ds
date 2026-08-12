@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import {
+  BootstrapSuperAdminDto,
   ForgotPasswordDto,
   RefreshTokenDto,
   ResetPasswordDto,
@@ -41,5 +42,11 @@ export class AuthController {
   @Post('reset-password')
   resetPassword(@Body() body: ResetPasswordDto) {
     return this.authService.resetPassword(body.token, body.new_password);
+  }
+
+  /** One-time: promote first SUPER_ADMIN (requires BOOTSTRAP_SECRET). */
+  @Post('bootstrap-super-admin')
+  bootstrapSuperAdmin(@Body() body: BootstrapSuperAdminDto) {
+    return this.authService.bootstrapSuperAdmin(body.phone_number, body.secret);
   }
 }

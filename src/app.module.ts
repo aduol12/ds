@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -17,6 +18,10 @@ import { FarmersModule } from './farmers/farmers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { IrrigationModule } from './irrigation/irrigation.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { WeatherModule } from './weather/weather.module';
+import { AdvisoryModule } from './advisory/advisory.module';
+import { ReportsModule } from './reports/reports.module';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -29,6 +34,7 @@ import { NotificationsModule } from './notifications/notifications.module';
         return validateEnv(config);
       },
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [NestConfigModule],
       useFactory: (configService: ConfigService) => {
@@ -37,18 +43,18 @@ import { NotificationsModule } from './notifications/notifications.module';
           syncEnv !== undefined
             ? syncEnv === 'true'
             : configService.get<string>('NODE_ENV') !== 'production';
+        // Railway Postgres needs SSL; local Postgres usually does not.
+        const sslEnabled = configService.get<string>('DB_SSL', 'true') === 'true';
         return {
           type: 'postgres' as const,
           host: configService.get<string>('DB_HOST'),
-          port: parseInt(configService.get<string>('DB_PORT', '40359')),
+          port: parseInt(configService.get<string>('DB_PORT', '40359'), 10),
           username: configService.get<string>('DB_USER', 'postgres'),
           password: configService.get<string>('DB_PASSWORD', ''),
           database: configService.get<string>('DB_DATABASE', 'postgres'),
           autoLoadEntities: true,
           synchronize,
-          ssl: {
-            rejectUnauthorized: false,
-          },
+          ssl: sslEnabled ? { rejectUnauthorized: false } : false,
         };
       },
       inject: [ConfigService],
@@ -60,13 +66,17 @@ import { NotificationsModule } from './notifications/notifications.module';
     DataModule,
     IotModule,
     AlertsModule,
-    MqttModule,
+    MqttModule.forRoot(),
     DevicesModule,
     FarmsModule,
     FarmersModule,
     DashboardModule,
     IrrigationModule,
     NotificationsModule,
+    WeatherModule,
+    AdvisoryModule,
+    ReportsModule,
+    TasksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -26,13 +26,13 @@ export class Farm {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   county: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   subcounty: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ward: string | null;
 
   @Column({ type: 'text', nullable: true })
@@ -47,7 +47,7 @@ export class Farm {
   @Column({ type: 'float', nullable: true })
   area_hectares: number | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   primary_crop: string | null;
 
   @Column({ default: true })

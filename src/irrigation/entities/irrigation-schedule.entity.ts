@@ -40,6 +40,10 @@ export class IrrigationSchedule {
   @Column({ default: true })
   is_enabled: boolean;
 
+  /** Prevents double-fire within the same minute across cron ticks. */
+  @Column({ type: 'timestamptz', nullable: true })
+  last_triggered_at: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

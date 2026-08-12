@@ -15,7 +15,7 @@ export class DeviceApiKey {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   kit_id: string | null;
 
   @ManyToOne(() => IotKit, { nullable: true, onDelete: 'CASCADE' })

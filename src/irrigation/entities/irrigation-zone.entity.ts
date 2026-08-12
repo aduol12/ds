@@ -25,14 +25,14 @@ export class IrrigationZone {
   @JoinColumn({ name: 'farm_id' })
   farm: Farm;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   field_id: string | null;
 
   @ManyToOne(() => Field, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'field_id' })
   field: Field | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   kit_id: string | null;
 
   @ManyToOne(() => IotKit, { nullable: true, onDelete: 'SET NULL' })

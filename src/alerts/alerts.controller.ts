@@ -1,14 +1,27 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+  Delete,
+} from '@nestjs/common';
 import { AlertsService } from './alerts.service';
 import { CreateAlertDto } from './dto/create-alert.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtOrDeviceApiKeyGuard } from '../common/guards/jwt-or-device.guard';
+import { ApiTags, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 
 @ApiTags('alerts')
 @Controller('api/alerts')
 export class AlertsController {
   constructor(private readonly alertsService: AlertsService) {}
 
+  @ApiBearerAuth()
+  @ApiHeader({ name: 'X-Device-Api-Key', required: false })
+  @UseGuards(JwtOrDeviceApiKeyGuard)
   @Post()
   create(@Body() createAlertDto: CreateAlertDto) {
     return this.alertsService.create(createAlertDto);

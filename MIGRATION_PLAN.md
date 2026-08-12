@@ -125,14 +125,16 @@ ds-back-master/src/
 - ✅ Staff-scoped alerts list; admin Alerts page wired to `/api/alerts`
 - ✅ Notification outbox + mock provider (`/api/notifications`)
 - ✅ Irrigation schedules + water usage (`/api/irrigation/zones/:id/schedules`, `/api/irrigation/usage`)
+- ✅ Irrigation start/stop → MQTT + `IotKit.is_irrigating`
+- ✅ Schedule runner (`@nestjs/schedule` every minute)
 - ⏳ Real SMS/email providers (Twilio/SendGrid)
-- ⏳ Schedule runner / cron executor
 
-### Wave 4 — Weather, AI advisory, reports, media
-- Weather provider adapter + forecasts/alerts
-- Advisory service (mock models) + history
-- Reports with CSV/Excel export
-- Media uploads beyond avatar (farm docs/images)
+### Wave 4 — Weather, AI advisory, reports, media ✅ started
+- ✅ Weather provider adapter + mock/WeatherAPI (`/api/weather/current|forecast`)
+- ✅ Advisory mock rules + history (`/api/advisory/:kitId`, `POST .../generate`)
+- ✅ Reports CSV + usage (`/api/reports/sensor-csv`, `/api/reports/usage`)
+- ⏳ Media uploads beyond avatar (farm docs/images)
+- ⏳ Organizations / billing
 
 ### Wave 5 — Hardening & tests
 - Rate limiting, security headers, pagination standards

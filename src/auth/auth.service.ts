@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
@@ -13,6 +14,7 @@ import { toPortalRole } from '../common/rbac';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { randomToken, sha256 } from '../common/crypto.util';
+import { normalizePhoneNumber } from '../common/phone.util';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -30,12 +32,17 @@ export class AuthService {
   ) {}
 
   async validateUser(phone_number: string, pass: string): Promise<any> {
-    const user = await this.usersService.findByPhoneNumber(phone_number);
-    if (user && (await bcrypt.compare(pass, user.password_hash))) {
-      const { password_hash, ...result } = user;
-      return result;
+    const user = await this.usersService.findByPhoneNumber(
+      normalizePhoneNumber(phone_number),
+    );
+    if (!user || !(await bcrypt.compare(pass, user.password_hash))) {
+      return null;
     }
-    return null;
+    if (user.is_active === false) {
+      throw new UnauthorizedException('This account has been deactivated');
+    }
+    const { password_hash, ...result } = user;
+    return result;
   }
 
   private buildUserPayload(user: any) {
@@ -145,7 +152,9 @@ export class AuthService {
 
   /** Issue a reset token. In production, send via SMS/email provider. */
   async forgotPassword(phone_number: string) {
-    const user = await this.usersService.findByPhoneNumber(phone_number);
+    const user = await this.usersService.findByPhoneNumber(
+      normalizePhoneNumber(phone_number),
+    );
     // Always return success to avoid phone enumeration
     const generic = {
       message:
@@ -203,5 +212,40 @@ export class AuthService {
     if (tokens.length) await this.refreshRepo.save(tokens);
 
     return { message: 'Password updated successfully' };
+  }
+
+  /**
+   * Promote the first SUPER_ADMIN. Disabled after one exists.
+   * Requires BOOTSTRAP_SECRET env var.
+   */
+  async bootstrapSuperAdmin(phone_number: string, secret: string) {
+    const expected = this.config.get<string>('BOOTSTRAP_SECRET');
+    if (!expected) {
+      throw new ForbiddenException(
+        'Bootstrap is disabled (BOOTSTRAP_SECRET not set)',
+      );
+    }
+    if (secret !== expected) {
+      throw new UnauthorizedException('Invalid bootstrap secret');
+    }
+
+    const existing = await this.usersService.countSuperAdmins();
+    if (existing > 0) {
+      throw new ForbiddenException(
+        'A super admin already exists. Use an admin account to change roles.',
+      );
+    }
+
+    const user = await this.usersService.promoteToSuperAdmin(phone_number);
+    this.logger.warn(
+      `Bootstrapped SUPER_ADMIN for user ${user.user_id} (${user.phone_number})`,
+    );
+
+    return {
+      message: 'Account promoted to SUPER_ADMIN. Sign in with the same phone and password.',
+      user_id: user.user_id,
+      phone_number: user.phone_number,
+      role: toPortalRole(user.role),
+    };
   }
 }

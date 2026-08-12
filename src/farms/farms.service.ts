@@ -39,10 +39,29 @@ export class FarmsService {
     throw new ForbiddenException('Not allowed to access this farm');
   }
 
-  create(ownerUserId: string, dto: CreateFarmDto) {
+  async create(actorUserId: string, actorRole: Role, dto: CreateFarmDto) {
+    let ownerUserId = actorUserId;
+
+    if (dto.owner_user_id && dto.owner_user_id !== actorUserId) {
+      if (!isStaffRole(actorRole)) {
+        throw new ForbiddenException('Only staff can assign a farm to another user');
+      }
+      const owner = await this.usersRepo.findOne({
+        where: { user_id: dto.owner_user_id },
+      });
+      if (!owner || owner.is_active === false) {
+        throw new NotFoundException('Owner farmer not found');
+      }
+      if (owner.role !== Role.USER && owner.role !== Role.FARMER) {
+        throw new ForbiddenException('Farm owner must be a farmer account');
+      }
+      ownerUserId = owner.user_id;
+    }
+
+    const { owner_user_id: _ignored, ...farmFields } = dto;
     return this.farmsRepo.save(
       this.farmsRepo.create({
-        ...dto,
+        ...farmFields,
         owner_user_id: ownerUserId,
         is_active: true,
       }),

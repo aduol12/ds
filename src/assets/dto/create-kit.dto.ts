@@ -1,4 +1,4 @@
-import { IsString, IsNumber, Min, Max, IsOptional } from 'class-validator';
+import { IsString, IsNumber, Min, Max, IsOptional, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateKitDto {
@@ -30,13 +30,19 @@ export class CreateKitDto {
   @IsNumber()
   reading_interval_idle_min: number;
 
+  /** Staff only: assign kit to this farmer instead of the acting user. */
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUUID()
+  farmer_id?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
   farm_id?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsString()
+  @IsUUID()
   field_id?: string;
 }

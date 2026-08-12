@@ -25,7 +25,7 @@ export class Field {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   crop_type: string | null;
 
   @Column({ type: 'float', nullable: true })

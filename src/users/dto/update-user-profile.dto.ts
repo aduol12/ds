@@ -1,6 +1,5 @@
 import {
   IsString,
-  IsPhoneNumber,
   IsDateString,
   IsOptional,
   IsEmail,
@@ -26,7 +25,7 @@ export class UpdateUserProfileDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsPhoneNumber()
+  @IsString()
   phone_number?: string;
 
   @ApiProperty({ required: false })

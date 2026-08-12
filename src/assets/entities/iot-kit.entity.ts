@@ -28,10 +28,10 @@ export class IotKit {
   @Column({ default: false })
   is_irrigating: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   farm_id: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   field_id: string | null;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })

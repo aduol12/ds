@@ -62,7 +62,12 @@ export class IotController {
     @Body() updateControlDto: UpdateControlDto,
     @Request() req,
   ) {
-    return this.iotService.updateControl(kitId, updateControlDto, req.user.user_id);
+    return this.iotService.updateControl(
+      kitId,
+      updateControlDto,
+      req.user.user_id,
+      req.user.role,
+    );
   }
 
   @ApiBearerAuth()
@@ -73,7 +78,12 @@ export class IotController {
     @Body() updateConfigDto: UpdateConfigDto,
     @Request() req,
   ) {
-    return this.iotService.updateConfig(kitId, updateConfigDto, req.user.user_id);
+    return this.iotService.updateConfig(
+      kitId,
+      updateConfigDto,
+      req.user.user_id,
+      req.user.role,
+    );
   }
 
   @ApiHeader({ name: 'X-Device-Api-Key', required: false })

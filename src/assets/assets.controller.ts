@@ -3,6 +3,9 @@ import { AssetsService } from './assets.service';
 import { CreateKitDto } from './dto/create-kit.dto';
 import { UpdateKitDto } from './dto/update-kit.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../users/guards/roles.guard';
+import { Roles } from '../users/decorators/roles.decorator';
+import { Role } from '../users/enums/role.enum';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('assets')
@@ -14,7 +17,11 @@ export class AssetsController {
 
   @Post()
   create(@Body() createKitDto: CreateKitDto, @Request() req) {
-    return this.assetsService.create(createKitDto, req.user.user_id);
+    return this.assetsService.create(
+      createKitDto,
+      req.user.user_id,
+      req.user.role,
+    );
   }
 
   @Get()
@@ -35,11 +42,13 @@ export class AssetsController {
   /** Soft-delete (decommission) — portal DELETE /api/assets/kit/:kitId */
   @Delete(':kitId')
   remove(@Param('kitId') kitId: string, @Request() req) {
-    return this.assetsService.remove(kitId, req.user.user_id);
+    return this.assetsService.remove(kitId, req.user.user_id, req.user.role);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(':kitId/permanent')
   hardDelete(@Param('kitId') kitId: string, @Request() req) {
-    return this.assetsService.hardDelete(kitId, req.user.user_id);
+    return this.assetsService.hardDelete(kitId, req.user.user_id, req.user.role);
   }
 }

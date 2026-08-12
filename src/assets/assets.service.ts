@@ -1,11 +1,17 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { IotKit } from './entities/iot-kit.entity';
 import { CreateKitDto } from './dto/create-kit.dto';
 import { UpdateKitDto } from './dto/update-kit.dto';
 import { KitConfiguration } from './entities/kit-configuration.entity';
-import { isStaffRole } from '../common/rbac';
+import { User } from '../users/entities/user.entity';
+import { isStaffRole, toPortalRole } from '../common/rbac';
 import { Role } from '../users/enums/role.enum';
 
 @Injectable()
@@ -15,32 +21,64 @@ export class AssetsService {
     private readonly iotKitRepository: Repository<IotKit>,
     @InjectRepository(KitConfiguration)
     private readonly kitConfigurationRepository: Repository<KitConfiguration>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
     private readonly dataSource: DataSource,
   ) {}
 
-  async create(createKitDto: CreateKitDto, farmer_id: string): Promise<IotKit> {
-    const lastKit = await this.iotKitRepository.find({
-      order: { kit_id: 'DESC' },
-      take: 1,
-    });
+  private async nextKitId(): Promise<string> {
+    const rows = await this.iotKitRepository
+      .createQueryBuilder('k')
+      .select('k.kit_id', 'kit_id')
+      .getRawMany<{ kit_id: string }>();
+    let max = 0;
+    for (const row of rows) {
+      const match = String(row.kit_id || '').match(/^DS-(\d+)$/i);
+      if (match) max = Math.max(max, parseInt(match[1], 10));
+    }
+    return `DS-${max + 1}`;
+  }
 
-    let newKitId = 'DS-1';
-    if (lastKit.length > 0) {
-      const lastId = parseInt(lastKit[0].kit_id.split('-')[1]);
-      newKitId = `DS-${lastId + 1}`;
+  async create(
+    createKitDto: CreateKitDto,
+    actorUserId: string,
+    role?: Role,
+  ): Promise<IotKit> {
+    let ownerId = actorUserId;
+    if (createKitDto.farmer_id) {
+      if (!isStaffRole(role)) {
+        throw new ForbiddenException('Only staff can assign a farmer owner');
+      }
+      const owner = await this.usersRepository.findOneBy({
+        user_id: createKitDto.farmer_id,
+      });
+      if (!owner || owner.is_active === false) {
+        throw new BadRequestException('Farmer owner not found');
+      }
+      ownerId = owner.user_id;
     }
 
+    const newKitId = await this.nextKitId();
+
     return this.dataSource.transaction(async (manager) => {
-      const newKit = this.iotKitRepository.create({
-        ...createKitDto,
+      const kitRepo = manager.getRepository(IotKit);
+      const configRepo = manager.getRepository(KitConfiguration);
+
+      const newKit = kitRepo.create({
         kit_id: newKitId,
-        farmer_id,
+        farmer_id: ownerId,
+        location_name: createKitDto.location_name.trim(),
+        crop_type: createKitDto.crop_type.trim(),
+        latitude: createKitDto.latitude,
+        longitude: createKitDto.longitude,
+        farm_id: createKitDto.farm_id || null,
+        field_id: createKitDto.field_id || null,
         is_active: true,
         is_irrigating: false,
       });
-      await manager.save(newKit);
+      await kitRepo.save(newKit);
 
-      const newConfig = this.kitConfigurationRepository.create({
+      const newConfig = configRepo.create({
         kit_id: newKit.kit_id,
         active_mode: 'Manual',
         reading_interval_active_min: createKitDto.reading_interval_active_min,
@@ -51,7 +89,7 @@ export class AssetsService {
         sensor_settings_json: {},
         smart_weather_settings_json: {},
       });
-      await manager.save(newConfig);
+      await configRepo.save(newConfig);
 
       return newKit;
     });
@@ -76,29 +114,33 @@ export class AssetsService {
     });
   }
 
-  async update(kit_id: string, updateKitDto: UpdateKitDto, farmer_id: string, role?: Role): Promise<IotKit> {
+  async update(
+    kit_id: string,
+    updateKitDto: UpdateKitDto,
+    farmer_id: string,
+    role?: Role,
+  ): Promise<IotKit> {
     const kit = await this.findOne(kit_id, farmer_id, role);
-
     Object.assign(kit, updateKitDto);
     return this.iotKitRepository.save(kit);
   }
 
-  async remove(kit_id: string, farmer_id: string): Promise<void> {
-    const kit = await this.iotKitRepository.findOneBy({ kit_id, farmer_id });
-    if (!kit) {
-      throw new NotFoundException('Kit not found');
-    }
-
+  async remove(kit_id: string, farmer_id: string, role?: Role): Promise<void> {
+    const kit = await this.findOne(kit_id, farmer_id, role);
     kit.is_active = false;
     await this.iotKitRepository.save(kit);
   }
 
-  async hardDelete(kit_id: string, farmer_id: string): Promise<void> {
-    const kit = await this.iotKitRepository.findOneBy({ kit_id, farmer_id });
-    if (!kit) {
-      throw new NotFoundException('Kit not found');
+  async hardDelete(
+    kit_id: string,
+    farmer_id: string,
+    role?: Role,
+  ): Promise<void> {
+    const portal = toPortalRole(role);
+    if (portal !== 'ADMIN' && portal !== 'SUPER_ADMIN') {
+      throw new ForbiddenException('Only admins can permanently delete kits');
     }
-
+    const kit = await this.findOne(kit_id, farmer_id, role);
     await this.iotKitRepository.remove(kit);
   }
 }

@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
 export class CreateFarmDto {
@@ -6,6 +6,12 @@ export class CreateFarmDto {
   @IsString()
   @MinLength(2)
   name: string;
+
+  /** Staff only: register farm under this farmer. Ignored for farmer self-create. */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  owner_user_id?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
